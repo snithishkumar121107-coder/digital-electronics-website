@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEMUX Notification Router — Demultiplexer-Based Notification Routing &amp; Digital Logic Simulator</title>
+<style>
+/* ============================================================
+   DEMUX Notification Router — Stylesheet
+   Theme: circuit-board dark navy with cyan / emerald / violet
+   signal accents. Light mode is a paper-and-copper inversion.
+   ============================================================ */
+
+:root{
+  --bg:#0a0e1a;
+  --bg-2:#0d1322;
+  --panel:rgba(20,27,45,0.62);
+  --panel-solid:#141b2d;
+  --panel-border:rgba(120,160,255,0.14);
+  --line:rgba(148,178,255,0.12);
+  --text:#e7ecf7;
+  --text-dim:#93a0bd;
+  --text-faint:#5c6a8c;
+
+  --sig-d:#22d3ee;      /* data input signal — cyan   */
+  --sig-s:#a78bfa;      /* select-line signal — violet*/
+  --sig-y:#34d399;      /* output signal      — green */
+  --danger:#f87171;
+  --warn:#fbbf24;
+
+  --grad-hero: radial-gradient(1200px 600px at 15% -10%, rgba(34,211,238,0.16), transparent 60%),
+               radial-gradient(1000px 700px at 100% 0%, rgba(167,139,250,0.14), transparent 55%),
+               linear-gradient(180deg, #0a0e1a 0%, #0a0e1a 100%);
+
+  --radius-s:8px;
+  --radius-m:14px;
+  --radius-l:22px;
+  --shadow:0 20px 60px -25px rgba(0,0,0,0.6);
+
+  --font-display:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+  --font-body:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Consolas,monospace;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"]{
+  color-scheme: light;
+  --bg:#f3f1ea;
+  --bg-2:#ebe7db;
+  --panel:rgba(255,255,255,0.68);
+  --panel-solid:#ffffff;
+  --panel-border:rgba(60,50,30,0.12);
+  --line:rgba(60,50,30,0.12);
+  --text:#1c1a14;
+  --text-dim:#5a5645;
+  --text-faint:#8a8570;
+
+  --sig-d:#0e7490;
+  --sig-s:#6d28d9;
+  --sig-y:#0f766e;
+  --danger:#b91c1c;
+  --warn:#b45309;
+
+  --grad-hero: radial-gradient(1200px 600px at 15% -10%, rgba(14,116,144,0.10), transparent 60%),
+               radial-gradient(1000px 700px at 100% 0%, rgba(109,40,217,0.08), transparent 55%),
+               linear-gradient(180deg, #f3f1ea 0%, #f3f1ea 100%);
+  --shadow:0 20px 50px -28px rgba(30,25,10,0.35);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; scroll-padding-top:76px; }
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--font-body); font-size:16px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4{ font-family:var(--font-display); margin:0 0 .4em; font-weight:600; letter-spacing:-0.01em; }
+p{ margin:0 0 1em; color:var(--text-dim); }
+a{ color:var(--sig-d); text-decoration:none; }
+code,.mono{ font-family:var(--font-mono); }
+button{ font-family:var(--font-body); cursor:pointer; }
+.container{ max-width:1180px; margin:0 auto; padding:0 24px; }
+section{ padding:88px 0; border-bottom:1px solid var(--line); }
+section:last-of-type{ border-bottom:none; }
+.section-head{ max-width:640px; margin-bottom:44px; }
+.eyebrow{ font-family:var(--font-mono); font-size:13px; color:var(--sig-d); margin-bottom:10px; display:block; }
+.section-head h2{ font-size:clamp(28px,3.4vw,40px); }
+.section-head p{ font-size:17px; }
+
+/* ---------- Loading screen ---------- */
+#loading-screen{
+  position:fixed; inset:0; z-index:9999; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:22px; transition:opacity .5s ease, visibility .5s ease;
+}
+#loading-screen.hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+.load-chain{ display:flex; align-items:center; gap:14px; font-family:var(--font-mono); font-size:14px; color:var(--text-dim); }
+.load-node{ width:64px; height:36px; border:1px solid var(--panel-border); border-radius:var(--radius-s); display:flex; align-items:center; justify-content:center; background:var(--panel); }
+.load-node.pulse{ animation:pulseNode 1.4s ease-in-out infinite; border-color:var(--sig-d); color:var(--sig-d); }
+.load-arrow{ width:26px; height:2px; background:var(--line); position:relative; overflow:hidden; }
+.load-arrow::after{ content:""; position:absolute; inset:0; background:var(--sig-d); transform:translateX(-100%); animation:arrowFlow 1.4s ease-in-out infinite; }
+@keyframes pulseNode{ 0%,100%{box-shadow:0 0 0 0 rgba(34,211,238,.35);} 50%{box-shadow:0 0 0 8px rgba(34,211,238,0);} }
+@keyframes arrowFlow{ 0%{transform:translateX(-100%);} 60%,100%{transform:translateX(100%);} }
+#loading-screen span.msg{ font-family:var(--font-mono); font-size:13px; color:var(--text-faint); }
+
+/* ---------- Nav ---------- */
+header.site-nav{
+  position:sticky; top:0; z-index:500;
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  background:color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom:1px solid var(--line);
+}
+.nav-inner{ display:flex; align-items:center; justify-content:space-between; height:64px; max-width:1280px; margin:0 auto; padding:0 24px; }
+.brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-mono); font-weight:600; font-size:15px; color:var(--text); }
+.brand-mark{ width:26px; height:26px; border:1px solid var(--sig-d); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--sig-d); font-size:12px; }
+.nav-links{ display:flex; gap:2px; flex-wrap:wrap; }
+.nav-links a{ color:var(--text-dim); font-size:13.5px; padding:8px 11px; border-radius:8px; transition:color .15s, background .15s; white-space:nowrap; }
+.nav-links a:hover, .nav-links a.active{ color:var(--text); background:var(--panel); }
+.nav-tools{ display:flex; align-items:center; gap:10px; }
+.theme-btn{ width:36px; height:36px; border-radius:50%; border:1px solid var(--panel-border); background:var(--panel); color:var(--text); display:flex; align-items:center; justify-content:center; }
+.hamburger{ display:none; width:36px; height:36px; border:1px solid var(--panel-border); background:var(--panel); border-radius:8px; color:var(--text); align-items:center; justify-content:center; }
+
+@media (max-width: 980px){
+  .nav-links{ position:fixed; top:64px; left:0; right:0; bottom:0; background:var(--bg); flex-direction:column; padding:18px; gap:4px; transform:translateY(-8px); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; overflow-y:auto; }
+  .nav-links.open{ opacity:1; transform:translateY(0); pointer-events:auto; }
+  .nav-links a{ width:100%; padding:13px 14px; font-size:15px; border-bottom:1px solid var(--line); border-radius:0; }
+  .hamburger{ display:flex; }
+}
+
+/* ---------- Buttons ---------- */
+.btn{ display:inline-flex; align-items:center; gap:8px; padding:12px 20px; border-radius:10px; border:1px solid transparent; font-size:14.5px; font-weight:600; transition:transform .15s, box-shadow .15s, background .15s, border-color .15s; }
+.btn:active{ transform:scale(0.97); }
+.btn-primary{ background:linear-gradient(135deg,var(--sig-d),#0ea5c4); color:#031319; box-shadow:0 12px 30px -12px rgba(34,211,238,.55); }
+.btn-primary:hover{ box-shadow:0 14px 34px -10px rgba(34,211,238,.7); }
+.btn-ghost{ background:var(--panel); color:var(--text); border-color:var(--panel-border); }
+.btn-ghost:hover{ border-color:var(--sig-d); color:var(--sig-d); }
+.btn-outline-violet{ background:transparent; border-color:var(--sig-s); color:var(--sig-s); }
+.btn-danger{ background:transparent; border-color:var(--danger); color:var(--danger); }
+.btn-sm{ padding:8px 14px; font-size:13px; border-radius:8px; }
+.btn-row{ display:flex; gap:12px; flex-wrap:wrap; }
+
+/* ---------- Cards / glass panels ---------- */
+.card{ background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius-m); padding:22px; backdrop-filter:blur(10px); }
+.grid{ display:grid; gap:18px; }
+.grid-2{ grid-template-columns:repeat(2,1fr); }
+.grid-3{ grid-template-columns:repeat(3,1fr); }
+.grid-4{ grid-template-columns:repeat(4,1fr); }
+@media (max-width:900px){ .grid-4{ grid-template-columns:repeat(2,1fr); } .grid-3{ grid-template-columns:repeat(2,1fr);} }
+@media (max-width:620px){ .grid-2,.grid-3,.grid-4{ grid-template-columns:1fr; } }
+
+/* ---------- Hero ---------- */
+.hero{ background:var(--grad-hero); padding:120px 0 90px; border-bottom:1px solid var(--line); position:relative; }
+.hero-grid{ display:grid; grid-template-columns:1.1fr 0.9fr; gap:52px; align-items:center; }
+@media (max-width:980px){ .hero-grid{ grid-template-columns:1fr; } }
+.hero h1{ font-size:clamp(36px,5.4vw,58px); line-height:1.04; }
+.hero .subtitle{ font-family:var(--font-mono); color:var(--sig-d); font-size:15px; margin-bottom:18px; }
+.hero p.lead{ font-size:17.5px; max-width:520px; }
+.hero-stats{ margin-top:38px; display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+@media (max-width:980px){ .hero-stats{ grid-template-columns:repeat(2,1fr); } }
+.stat-card{ padding:14px 12px; text-align:left; }
+.stat-card .num{ font-family:var(--font-mono); font-size:21px; color:var(--sig-d); display:block; }
+.stat-card .lbl{ font-size:11.5px; color:var(--text-faint); }
+
+/* hero circuit animation */
+.hero-anim{ position:relative; }
+.hero-chain{ display:flex; flex-direction:column; align-items:center; gap:0; }
+.chip{ width:100%; max-width:280px; padding:16px 18px; border-radius:12px; text-align:center; font-family:var(--font-mono); font-size:13px; position:relative; z-index:2; }
+.chip strong{ display:block; font-size:14px; color:var(--text); margin-bottom:2px; }
+.pipe{ width:2px; height:34px; background:linear-gradient(var(--line),var(--line)); position:relative; overflow:hidden; }
+.pipe::after{ content:""; position:absolute; top:-40%; left:0; width:100%; height:40%; background:linear-gradient(var(--sig-d),transparent); animation:flowDown 1.8s linear infinite; }
+@keyframes flowDown{ 0%{ top:-40%; } 100%{ top:100%; } }
+.chip.demux{ border:1px solid var(--sig-s); box-shadow:0 0 24px -6px rgba(167,139,250,.5); }
+.chip.dest{ border:1px solid var(--sig-y); }
+
+/* ---------- Objective / theory cards ---------- */
+.obj-card{ position:relative; overflow:hidden; }
+.obj-card .tag{ font-family:var(--font-mono); font-size:11px; color:var(--sig-s); }
+
+/* ---------- Truth tables ---------- */
+table.truth{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:13.5px; }
+table.truth th,table.truth td{ padding:9px 12px; text-align:center; border-bottom:1px solid var(--line); }
+table.truth th{ color:var(--text-faint); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+table.truth tr.active-row td{ background:rgba(52,211,153,0.12); color:var(--sig-y); font-weight:600; }
+.table-wrap{ overflow-x:auto; }
+
+/* ---------- Diagrams ---------- */
+.diagram-shell{ display:grid; grid-template-columns:260px 1fr; gap:22px; }
+@media (max-width:860px){ .diagram-shell{ grid-template-columns:1fr; } }
+.controls-panel .ctrl-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }
+.controls-panel .ctrl-row:last-child{ border-bottom:none; }
+.ctrl-label{ font-family:var(--font-mono); font-size:13px; color:var(--text-dim); }
+.toggle{ width:52px; height:28px; border-radius:20px; background:var(--bg-2); border:1px solid var(--panel-border); position:relative; transition:.2s; }
+.toggle::after{ content:""; position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%; background:var(--text-faint); transition:.2s; }
+.toggle.on{ background:rgba(34,211,238,.18); border-color:var(--sig-d); }
+.toggle.on::after{ transform:translateX(24px); background:var(--sig-d); }
+.diagram-svg-wrap{ overflow-x:auto; }
+svg.logic-svg text{ font-family:var(--font-mono); fill:var(--text); font-size:13px; }
+svg.logic-svg .wire{ stroke:var(--line); stroke-width:2; fill:none; }
+svg.logic-svg .wire.active{ stroke:var(--sig-y); filter:drop-shadow(0 0 5px var(--sig-y)); }
+svg.logic-svg .wire.select{ stroke:var(--sig-s); }
+svg.logic-svg .wire.input{ stroke:var(--sig-d); }
+svg.logic-svg .demux-box{ fill:var(--panel-solid); stroke:var(--panel-border); }
+svg.logic-svg .out-label{ fill:var(--text-dim); font-family:var(--font-mono); font-size:12px; }
+svg.logic-svg .out-label.active{ fill:var(--sig-y); font-weight:700; }
+.readout{ margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+.readout .r-item{ padding:10px 12px; border-radius:10px; background:var(--bg-2); border:1px solid var(--line); font-family:var(--font-mono); font-size:12.5px; }
+.readout .r-item b{ display:block; color:var(--text); font-size:15px; margin-top:2px; }
+.status-line{ margin-top:14px; padding:12px 14px; border-radius:10px; font-family:var(--font-mono); font-size:13.5px; background:rgba(52,211,153,0.1); color:var(--sig-y); border:1px solid rgba(52,211,153,.3); }
+
+/* ---------- Form elements ---------- */
+label{ display:block; font-size:12.5px; color:var(--text-faint); margin-bottom:6px; font-family:var(--font-mono); }
+input[type=text],input[type=email],input[type=number],select,textarea{
+  width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--panel-border);
+  background:var(--bg-2); color:var(--text); font-family:var(--font-body); font-size:14px; margin-bottom:14px;
+}
+textarea{ resize:vertical; min-height:80px; }
+.form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+@media (max-width:620px){ .form-grid{ grid-template-columns:1fr; } }
+
+/* ---------- Router ---------- */
+.router-shell{ display:grid; grid-template-columns:1fr 1.15fr; gap:22px; }
+@media (max-width:980px){ .router-shell{ grid-template-columns:1fr; } }
+.route-steps{ display:flex; flex-direction:column; gap:0; }
+.route-step{ display:flex; gap:12px; padding:10px 0; opacity:.35; transition:opacity .3s; }
+.route-step.done{ opacity:1; }
+.step-dot{ width:22px; height:22px; border-radius:50%; border:1px solid var(--panel-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10px; flex:none; }
+.route-step.done .step-dot{ background:var(--sig-y); border-color:var(--sig-y); color:#04231a; }
+.step-text b{ display:block; font-size:13.5px; }
+.step-text span{ font-size:12px; color:var(--text-faint); }
+
+/* ---------- Log table ---------- */
+table.log{ width:100%; border-collapse:collapse; font-size:13px; }
+table.log th{ text-align:left; padding:10px 10px; font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--panel-border); position:sticky; top:0; background:var(--panel-solid); }
+table.log td{ padding:10px 10px; border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:12.5px; }
+.badge{ display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-family:var(--font-mono); }
+.badge.delivered{ background:rgba(52,211,153,.15); color:var(--sig-y); }
+.badge.failed{ background:rgba(248,113,113,.15); color:var(--danger); }
+.badge.invalid{ background:rgba(251,191,36,.15); color:var(--warn); }
+.badge.no-output{ background:rgba(148,178,255,.12); color:var(--text-dim); }
+.dv-status.delivered{ color:var(--sig-y); }
+.dv-status.no-output{ color:var(--warn); }
+.dv-status.invalid{ color:var(--warn); }
+.dv-status.failed{ color:var(--danger); }
+.filter-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.chip-filter{ padding:7px 13px; border-radius:20px; border:1px solid var(--panel-border); background:var(--panel); color:var(--text-dim); font-size:12.5px; }
+.chip-filter.active{ border-color:var(--sig-d); color:var(--sig-d); }
+.log-scroll{ max-height:420px; overflow:auto; border:1px solid var(--line); border-radius:12px; }
+
+/* ---------- Test cases ---------- */
+table.tc{ width:100%; border-collapse:collapse; font-size:12.5px; }
+table.tc th,table.tc td{ padding:9px 8px; border-bottom:1px solid var(--line); text-align:left; }
+table.tc th{ color:var(--text-faint); font-size:11px; text-transform:uppercase; }
+.pass{ color:var(--sig-y); font-weight:700; }
+.fail{ color:var(--danger); font-weight:700; }
+.summary-strip{ display:flex; gap:14px; flex-wrap:wrap; margin:18px 0; }
+.summary-strip .card{ flex:1; min-width:130px; text-align:center; padding:16px; }
+.summary-strip .card .num{ font-family:var(--font-mono); font-size:24px; }
+
+/* ---------- Dashboard charts (css bars) ---------- */
+.bar-chart{ display:flex; align-items:flex-end; gap:10px; height:180px; padding-top:10px; }
+.bar-chart .bar{ flex:1; background:linear-gradient(180deg,var(--sig-d),rgba(34,211,238,.15)); border-radius:6px 6px 0 0; position:relative; min-height:4px; }
+.bar-chart .bar span{ position:absolute; bottom:-22px; left:0; right:0; text-align:center; font-family:var(--font-mono); font-size:10.5px; color:var(--text-faint); }
+.bar-chart .bar b{ position:absolute; top:-20px; left:0; right:0; text-align:center; font-size:11px; color:var(--text); }
+.bar-chart-wrap{ margin-bottom:26px; }
+.donut-wrap{ display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+.legend-item{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; }
+.legend-dot{ width:10px; height:10px; border-radius:3px; }
+
+/* ---------- Quiz ---------- */
+.quiz-card{ max-width:720px; margin:0 auto; }
+.quiz-progress{ height:6px; background:var(--bg-2); border-radius:6px; overflow:hidden; margin-bottom:18px; }
+.quiz-progress .fill{ height:100%; background:var(--sig-d); transition:.3s; }
+.quiz-timer{ font-family:var(--font-mono); color:var(--sig-s); font-size:13px; }
+.opt-btn{ display:block; width:100%; text-align:left; padding:13px 16px; border-radius:10px; border:1px solid var(--panel-border); background:var(--bg-2); color:var(--text); margin-bottom:10px; font-size:14px; }
+.opt-btn:hover{ border-color:var(--sig-d); }
+.opt-btn.correct{ border-color:var(--sig-y); background:rgba(52,211,153,.12); }
+.opt-btn.wrong{ border-color:var(--danger); background:rgba(248,113,113,.12); }
+.badge-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:16px; }
+@media (max-width:620px){ .badge-grid{ grid-template-columns:repeat(2,1fr); } }
+.ach-badge{ text-align:center; padding:14px 8px; border-radius:12px; font-size:12px; opacity:.35; }
+.ach-badge.unlocked{ opacity:1; background:rgba(167,139,250,.1); border:1px solid var(--sig-s); }
+.ach-badge .emo{ font-size:22px; display:block; margin-bottom:4px; }
+
+/* ---------- Certificate ---------- */
+#certificate-canvas-wrap{ display:flex; justify-content:center; margin:20px 0; }
+#certificate-canvas{ max-width:100%; border-radius:10px; box-shadow:var(--shadow); }
+
+/* ---------- FAQ ---------- */
+.faq-item{ border-bottom:1px solid var(--line); padding:16px 0; }
+.faq-q{ display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-weight:600; font-size:15px; }
+.faq-a{ max-height:0; overflow:hidden; transition:max-height .25s ease; color:var(--text-dim); font-size:14.5px; }
+.faq-item.open .faq-a{ max-height:300px; padding-top:10px; }
+
+/* ---------- Footer ---------- */
+footer{ padding:48px 0 28px; text-align:center; color:var(--text-faint); font-size:13px; }
+footer .fine{ font-family:var(--font-mono); font-size:11.5px; margin-top:6px; }
+
+/* ---------- Utility ---------- */
+.muted{ color:var(--text-faint); font-size:12.5px; }
+.flex-between{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.mt{ margin-top:18px; }
+.hidden{ display:none !important; }
+.toast{ position:fixed; bottom:24px; right:24px; background:var(--panel-solid); border:1px solid var(--panel-border); padding:13px 18px; border-radius:10px; font-size:13.5px; box-shadow:var(--shadow); z-index:800; transform:translateY(20px); opacity:0; transition:.25s; }
+.toast.show{ transform:translateY(0); opacity:1; }
+.pill-note{ display:inline-block; padding:4px 10px; border-radius:20px; background:var(--panel); border:1px solid var(--panel-border); font-family:var(--font-mono); font-size:11px; color:var(--text-faint); margin-bottom:14px; }
+::-webkit-scrollbar{ height:8px; width:8px; }
+::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:8px; }
+
+</style>
+</head>
+<body>
+
+<!-- ================= LOADING SCREEN ================= -->
+<div id="loading-screen">
+  <div class="load-chain">
+    <div class="load-node pulse">D</div>
+    <div class="load-arrow"></div>
+    <div class="load-node">DEMUX</div>
+    <div class="load-arrow"></div>
+    <div class="load-node">Yn</div>
+  </div>
+  <span class="msg">Initializing DEMUX Notification Router…</span>
+</div>
+
+<!-- ================= NAV ================= -->
+<header class="site-nav">
+  <div class="nav-inner">
+    <div class="brand"><span class="brand-mark">Y</span> DEMUX Router</div>
+    <nav id="nav-links" class="nav-links">
+      <a href="#home">Home</a>
+      <a href="#intro">Introduction</a>
+      <a href="#theory">DEMUX Theory</a>
+      <a href="#types">Types</a>
+      <a href="#truth-tables">Truth Tables</a>
+      <a href="#diagram">Logic Diagram</a>
+      <a href="#simulator">Live Simulator</a>
+      <a href="#router">Notification Router</a>
+      <a href="#tests">Test Cases</a>
+      <a href="#logs">Delivery Logs</a>
+      <a href="#dashboard">Dashboard</a>
+      <a href="#quiz">Quiz</a>
+      <a href="#certificate">Certificate</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div class="nav-tools">
+      <button class="theme-btn" id="theme-toggle" title="Toggle theme">☾</button>
+      <button class="hamburger" id="hamburger">☰</button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= HOME / HERO ================= -->
+<section id="home" class="hero" style="border-bottom:1px solid var(--line);padding-top:90px;">
+  <div class="container hero-grid">
+    <div>
+      <span class="subtitle">Demultiplexer-Based Notification Routing &amp; Digital Logic Simulator</span>
+      <h1>DEMUX Notification Router</h1>
+      <p class="lead">Route one notification to the right destination using demultiplexer logic — a live digital-logic simulator paired with a working notification-routing prototype.</p>
+      <p class="lead">A software-based simulation demonstrating how DEMUX logic routes a single notification to one selected destination using select lines.</p>
+      <div class="btn-row">
+        <a href="#theory" class="btn btn-primary">Explore DEMUX</a>
+        <a href="#router" class="btn btn-ghost">Launch Router</a>
+        <a href="#simulator" class="btn btn-ghost">Try Simulator</a>
+        <a href="#quiz" class="btn btn-outline-violet">Take Quiz</a>
+      </div>
+      <div class="hero-stats">
+        <div class="card stat-card"><span class="num">1</span><span class="lbl">Input (D)</span></div>
+        <div class="card stat-card"><span class="num">8</span><span class="lbl">Destinations</span></div>
+        <div class="card stat-card"><span class="num">Live</span><span class="lbl">DEMUX Logic</span></div>
+        <div class="card stat-card"><span class="num">15+</span><span class="lbl">Test Cases</span></div>
+        <div class="card stat-card"><span class="num">Local</span><span class="lbl">Delivery Logging</span></div>
+      </div>
+    </div>
+    <div class="hero-anim">
+      <div class="hero-chain">
+        <div class="card chip"><strong>Notification</strong>D = 1</div>
+        <div class="pipe"></div>
+        <div class="card chip demux"><strong>DEMUX Router</strong>S2 S1 S0</div>
+        <div class="pipe"></div>
+        <div class="card chip"><strong>Select Lines</strong>110</div>
+        <div class="pipe"></div>
+        <div class="card chip dest"><strong>Destination</strong>Emergency Service</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INTRODUCTION ================= -->
+<section id="intro">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Problem Overview</span>
+      <h2>One notification, many possible destinations</h2>
+      <p>In modern systems, one notification may need to be routed to one of several destinations — Email, SMS, a mobile app, an admin dashboard, a security team, or an emergency service. Sending the same notification to every destination is inefficient. A DEMUX gives a conceptual digital routing model where one input reaches exactly one selected output, and the select lines determine the destination.</p>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>The real-world scenario</h3>
+        <p>An alert generated anywhere in a system — a sensor, a payment gateway, an auth service — must reach exactly one appropriate channel, not all of them at once.</p>
+      </div>
+      <div class="card">
+        <h3>The proposed solution</h3>
+        <ol style="color:var(--text-dim);padding-left:18px;margin:0;">
+          <li>Generate notification</li>
+          <li>Identify destination</li>
+          <li>Convert destination to select-line combination</li>
+          <li>Pass notification through DEMUX</li>
+          <li>Route to selected output</li>
+          <li>Generate delivery result</li>
+          <li>Log the delivery</li>
+          <li>Handle invalid destinations</li>
+          <li>Display statistics</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Objectives</span>
+      <h2>What this project demonstrates</h2>
+    </div>
+    <div class="grid grid-4">
+      <div class="card obj-card"><span class="tag">01</span><p>Demonstrate DEMUX digital logic with real, computed outputs.</p></div>
+      <div class="card obj-card"><span class="tag">02</span><p>Show how select lines determine the active output.</p></div>
+      <div class="card obj-card"><span class="tag">03</span><p>Route notifications to real destinations via DEMUX logic.</p></div>
+      <div class="card obj-card"><span class="tag">04</span><p>Generate reproducible synthetic notification data.</p></div>
+      <div class="card obj-card"><span class="tag">05</span><p>Validate destinations and reject invalid ones.</p></div>
+      <div class="card obj-card"><span class="tag">06</span><p>Maintain a persistent delivery log with filters.</p></div>
+      <div class="card obj-card"><span class="tag">07</span><p>Test normal and edge/fault cases automatically.</p></div>
+      <div class="card obj-card"><span class="tag">08</span><p>Visualize routing statistics on a live dashboard.</p></div>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Assumptions</span>
+      <h2>Scope of this simulation</h2>
+    </div>
+    <div class="grid grid-2">
+      <ul style="color:var(--text-dim);padding-left:18px;">
+        <li>One notification is generated and routed at a time.</li>
+        <li>Only one destination is selected at a time.</li>
+        <li>The DEMUX performs one-to-many routing; only one output is ever active.</li>
+        <li>Select lines determine the active output deterministically.</li>
+        <li>Synthetic data is used for demonstration.</li>
+      </ul>
+      <ul style="color:var(--text-dim);padding-left:18px;">
+        <li>No real email, SMS, or WhatsApp message is ever sent.</li>
+        <li>The website simulates delivery only.</li>
+        <li>Delivery status is logged locally in the browser.</li>
+        <li>Invalid destinations are rejected, not routed.</li>
+        <li>Binary select-line combinations map directly to destinations.</li>
+      </ul>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Input Format</span>
+      <h2>What a notification looks like</h2>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="truth">
+          <thead><tr><th>Field</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>Notification ID</td><td>N001</td></tr>
+            <tr><td>Message</td><td>Server temperature is high</td></tr>
+            <tr><td>Priority</td><td>High</td></tr>
+            <tr><td>Source</td><td>Temperature Sensor</td></tr>
+            <tr><td>Destination</td><td>SMS</td></tr>
+            <tr><td>Timestamp</td><td>Current time</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mt">You can create your own notification with these exact fields in the <a href="#router">Notification Router</a> below.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DEMUX THEORY ================= -->
+<section id="theory">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">DEMUX Theory</span>
+      <h2>What is a Demultiplexer?</h2>
+      <p>A Demultiplexer is a combinational digital circuit that takes one data input and routes it to one of several outputs, based on the values placed on its select lines. Only one output is active at any time — the one whose binary address matches the select-line combination.</p>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Structure</h3>
+        <p><b>Data Input (D)</b> — the single signal to be routed.<br>
+        <b>Select Lines (S)</b> — n binary lines that address one of 2ⁿ outputs.<br>
+        <b>Outputs (Y0…Yn-1)</b> — exactly one carries D; the rest stay 0.</p>
+      </div>
+      <div class="card">
+        <h3>Routing principle</h3>
+        <p>The select lines are decoded into a binary index. That index selects exactly one output line, which is then set equal to D. Every other output remains 0, regardless of D.</p>
+      </div>
+    </div>
+    <div class="card mt">
+      <h3>General structure (1:4 DEMUX)</h3>
+      <pre class="mono" style="overflow-x:auto;color:var(--text-dim);font-size:13px;line-height:1.6;">
+             ┌─────────────┐
+D  ─────────►│             ├──► Y0
+             │    DEMUX    ├──► Y1
+S1 ─────────►│             ├──► Y2
+S0 ─────────►│             ├──► Y3
+             └─────────────┘</pre>
+      <p class="muted">See the fully interactive version of this diagram in the <a href="#diagram">Logic Diagram</a> section below.</p>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Boolean Expressions</span>
+      <h2>DEMUX logic expressions</h2>
+      <p>For a 1:4 DEMUX: Y0 = D·S1'·S0' &nbsp; Y1 = D·S1'·S0 &nbsp; Y2 = D·S1·S0' &nbsp; Y3 = D·S1·S0. Each output equals D only when the select lines match its own binary address; otherwise it is 0. Try it live: the expression updates automatically in the <a href="#simulator">simulator</a> as you flip switches.</p>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">MUX vs DEMUX</span>
+      <h2>A quick comparison</h2>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><h3>Multiplexer (MUX)</h3><p>Many inputs → one output. Select lines choose which input is passed through.</p></div>
+      <div class="card"><h3>Demultiplexer (DEMUX)</h3><p>One input → many outputs. Select lines choose which output receives the input. <b style="color:var(--sig-s);">This is the concept used throughout this project.</b></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TYPES ================= -->
+<section id="types">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Types of Demultiplexer</span>
+      <h2>1:2, 1:4, 1:8 and 1:16</h2>
+      <p>Number of outputs = 2ⁿ, where n is the number of select lines.</p>
+    </div>
+    <div class="grid grid-4">
+      <div class="card">
+        <h3>1:2 DEMUX</h3>
+        <p>1 select line → 2 outputs. Simplest routing decision: on/off between two channels.</p>
+        <p class="muted">Applications: two-way signal steering, simple channel toggling.</p>
+      </div>
+      <div class="card">
+        <h3>1:4 DEMUX</h3>
+        <p>2 select lines → 4 outputs. Used in this project's simulator for a compact 4-destination example.</p>
+        <p class="muted">Applications: small routing banks, memory bank selection.</p>
+      </div>
+      <div class="card">
+        <h3>1:8 DEMUX</h3>
+        <p>3 select lines → 8 outputs. <b>Drives the Notification Router</b>, mapping to 8 real destinations.</p>
+        <p class="muted">Applications: multi-channel notification routing, address decoding.</p>
+      </div>
+      <div class="card">
+        <h3>1:16 DEMUX</h3>
+        <p>4 select lines → 16 outputs. Shown conceptually; the simulator focuses on 1:2/1:4/1:8 for clarity.</p>
+        <p class="muted">Applications: large-scale channel/address decoding.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRUTH TABLES (reference) ================= -->
+<section id="truth-tables">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Truth Tables</span>
+      <h2>Reference tables</h2>
+      <p>These are static reference tables. Head to the <a href="#simulator">Live Simulator</a> to see a row highlight in real time as you change select lines.</p>
+    </div>
+    <div class="grid grid-3">
+      <div class="card">
+        <h3>1:2 DEMUX</h3>
+        <table class="truth"><thead><tr><th>S</th><th>Y0</th><th>Y1</th></tr></thead>
+        <tbody><tr><td>0</td><td>D</td><td>0</td></tr><tr><td>1</td><td>0</td><td>D</td></tr></tbody></table>
+      </div>
+      <div class="card">
+        <h3>1:4 DEMUX</h3>
+        <table class="truth"><thead><tr><th>S1</th><th>S0</th><th>Active</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>0</td><td>Y0</td></tr>
+          <tr><td>0</td><td>1</td><td>Y1</td></tr>
+          <tr><td>1</td><td>0</td><td>Y2</td></tr>
+          <tr><td>1</td><td>1</td><td>Y3</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card">
+        <h3>1:8 DEMUX</h3>
+        <table class="truth"><thead><tr><th>S2</th><th>S1</th><th>S0</th><th>Active</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>0</td><td>0</td><td>Y0</td></tr>
+          <tr><td>0</td><td>0</td><td>1</td><td>Y1</td></tr>
+          <tr><td>0</td><td>1</td><td>0</td><td>Y2</td></tr>
+          <tr><td>0</td><td>1</td><td>1</td><td>Y3</td></tr>
+          <tr><td>1</td><td>0</td><td>0</td><td>Y4</td></tr>
+          <tr><td>1</td><td>0</td><td>1</td><td>Y5</td></tr>
+          <tr><td>1</td><td>1</td><td>0</td><td>Y6</td></tr>
+          <tr><td>1</td><td>1</td><td>1</td><td>Y7</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LOGIC DIAGRAM + LIVE SIMULATOR ================= -->
+<section id="diagram">
+  <div class="container">
+    <div id="simulator"></div>
+    <div class="section-head">
+      <span class="eyebrow">Logic Diagram · Live DEMUX Simulator</span>
+      <h2>Every value here is actually calculated</h2>
+      <p>Pick a DEMUX size, then flip D and the select-line switches. The diagram, truth table, output vector, and Boolean expression all update immediately from D + select lines — nothing is pre-scripted.</p>
+    </div>
+    <div class="btn-row" id="sim-type-select" style="margin-bottom:22px;">
+      <button class="btn btn-ghost" data-bits="1">1:2 DEMUX</button>
+      <button class="btn btn-primary" data-bits="2">1:4 DEMUX</button>
+      <button class="btn btn-ghost" data-bits="3">1:8 DEMUX</button>
+    </div>
+    <div class="diagram-shell">
+      <div class="card controls-panel" id="sim-controls"></div>
+      <div class="card">
+        <div id="sim-diagram"></div>
+        <div class="readout" id="sim-readout"></div>
+        <div class="status-line" id="sim-status"></div>
+      </div>
+    </div>
+    <div class="card mt" id="sim-truth-wrap"></div>
+  </div>
+</section>
+
+<!-- ================= NOTIFICATION ROUTER ================= -->
+<section id="router">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Notification Router</span>
+      <h2>Live Notification Router</h2>
+      <p>This is the main real-world application. Every notification you create here is routed through the same 1:8 DEMUX logic shown above — the destination is converted to select lines, passed through the DEMUX, and the resulting output decides the delivery result.</p>
+    </div>
+    <div class="router-shell">
+      <div class="card">
+        <h3>Create Notification</h3>
+        <div class="form-grid">
+          <div><label>Notification ID</label><input type="text" id="f-id" placeholder="N001"></div>
+          <div><label>Priority</label>
+            <select id="f-priority">
+              <option>Low</option><option>Medium</option><option selected>High</option><option>Critical</option>
+            </select>
+          </div>
+        </div>
+        <label>Message</label>
+        <textarea id="f-message" placeholder="Server temperature is high"></textarea>
+        <div class="form-grid">
+          <div><label>Source</label><input type="text" id="f-source" placeholder="Temperature Sensor"></div>
+          <div><label>Destination</label>
+            <select id="f-destination">
+              <option>Email</option><option selected>SMS</option><option>Mobile App</option><option>WhatsApp</option>
+              <option>Admin Dashboard</option><option>Security Team</option><option>Emergency Service</option>
+              <option>Cloud Notification</option><option>Unknown Channel</option>
+            </select>
+          </div>
+        </div>
+        <p class="muted">Choose "Unknown Channel" to test invalid-destination handling.</p>
+        <label style="display:flex;align-items:center;gap:8px;font-family:var(--font-body);color:var(--text-dim);font-size:13.5px;margin:-4px 0 16px;">
+          <input type="checkbox" id="f-force-d0" style="width:auto;margin:0;">
+          Force D = 0 (test: no signal present — no output should activate)
+        </label>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="route-btn">Route Notification</button>
+          <button class="btn btn-outline-violet" id="start-demo-btn">▶ Start Demo</button>
+        </div>
+        <p class="muted mt">Start Demo automatically routes 5 notifications to 5 different destinations, one after another, using this exact same routing logic.</p>
+      </div>
+      <div class="card">
+        <h3>Routing Path</h3>
+        <div id="router-diagram"></div>
+        <div class="readout" id="demux-values-panel"></div>
+        <div class="status-line" id="router-status">Fill in a notification and click "Route Notification".</div>
+        <div class="mt" id="route-steps"></div>
+      </div>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Destination Mapping</span>
+      <h2>How destinations become select lines</h2>
+    </div>
+    <p class="muted">This row highlights live to match whichever destination was routed above.</p>
+    <div class="table-wrap">
+      <table class="truth">
+        <thead><tr><th>Binary</th><th>Output</th><th>Destination</th></tr></thead>
+        <tbody>
+          <tr id="destmap-row-0"><td>000</td><td>Y0</td><td>Email</td></tr>
+          <tr id="destmap-row-1"><td>001</td><td>Y1</td><td>SMS</td></tr>
+          <tr id="destmap-row-2"><td>010</td><td>Y2</td><td>Mobile App</td></tr>
+          <tr id="destmap-row-3"><td>011</td><td>Y3</td><td>WhatsApp</td></tr>
+          <tr id="destmap-row-4"><td>100</td><td>Y4</td><td>Admin Dashboard</td></tr>
+          <tr id="destmap-row-5"><td>101</td><td>Y5</td><td>Security Team</td></tr>
+          <tr id="destmap-row-6"><td>110</td><td>Y6</td><td>Emergency Service</td></tr>
+          <tr id="destmap-row-7"><td>111</td><td>Y7</td><td>Cloud Notification</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Synthetic Data Generator</span>
+      <h2>Generate reproducible notification data</h2>
+      <p>Generates deterministic synthetic notifications that flow through the same DEMUX routing pipeline and appear in the delivery log and dashboard below.</p>
+    </div>
+    <div class="card">
+      <div class="flex-between">
+        <div>
+          <label>Number of records</label>
+          <select id="syn-count" style="width:160px;">
+            <option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" id="syn-generate">Generate Data</button>
+          <button class="btn btn-ghost btn-sm" id="syn-clear">Clear Synthetic Data</button>
+          <button class="btn btn-ghost btn-sm" id="syn-export">Export CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TEST CASES ================= -->
+<section id="tests">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Test Cases</span>
+      <h2>10 normal cases · 5 edge / fault cases</h2>
+      <p>Every test runs through the exact same <code>processNotification()</code> pipeline used by the router above — nothing here is a separately hard-coded result.</p>
+    </div>
+    <button class="btn btn-primary" id="run-tests-btn">Run All Tests</button>
+    <div class="summary-strip" id="tc-summary"></div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="tc">
+          <thead><tr><th>Test ID</th><th>Description</th><th>Expected</th><th>Actual</th><th>Status</th></tr></thead>
+          <tbody id="tc-table-body"><tr><td colspan="5" class="muted" style="padding:16px;">Click "Run All Tests" to execute the suite.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DELIVERY LOGS ================= -->
+<section id="logs">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Routing History · Delivery Log</span>
+      <h2>Every routing attempt, recorded</h2>
+      <p>Updates immediately after every manual route and every step of Start Demo — including D, the select lines, and the resolved output.</p>
+    </div>
+    <div class="filter-row" id="log-filters">
+      <button class="chip-filter active" data-filter="all">All</button>
+      <button class="chip-filter" data-filter="delivered">Delivered</button>
+      <button class="chip-filter" data-filter="failed">Failed</button>
+      <button class="chip-filter" data-filter="invalid">Invalid</button>
+      <button class="chip-filter" data-filter="nooutput">No Output (D=0)</button>
+      <button class="chip-filter" data-filter="high">High Priority</button>
+      <button class="chip-filter" data-filter="critical">Critical</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <div class="log-scroll">
+        <table class="log">
+          <thead><tr><th>ID</th><th>Timestamp</th><th>Source</th><th>Destination</th><th>D</th><th>Select Lines</th><th>Output</th><th>Priority</th><th>Status</th><th>Message</th></tr></thead>
+          <tbody id="log-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="btn-row mt">
+      <button class="btn btn-ghost btn-sm" id="export-logs-btn">Export Delivery Logs as CSV</button>
+      <button class="btn btn-ghost btn-sm" id="download-report-btn">Download Test Report</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DASHBOARD ================= -->
+<section id="dashboard">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Dashboard</span>
+      <h2>Routing analytics</h2>
+    </div>
+    <div class="grid grid-4" id="dash-stats"></div>
+    <div class="grid grid-2 mt">
+      <div class="card bar-chart-wrap">
+        <h3>Notifications by Destination</h3>
+        <div class="bar-chart" id="chart-destinations"></div>
+      </div>
+      <div class="card bar-chart-wrap">
+        <h3>Priority Distribution</h3>
+        <div class="bar-chart" id="chart-priority"></div>
+      </div>
+      <div class="card bar-chart-wrap">
+        <h3>Delivered vs Failed vs Invalid</h3>
+        <div class="bar-chart" id="chart-status"></div>
+      </div>
+      <div class="card bar-chart-wrap">
+        <h3>Recent Routing Activity</h3>
+        <div class="bar-chart" id="chart-activity"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= QUIZ ================= -->
+<section id="quiz">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Quiz</span>
+      <h2>Test your DEMUX knowledge</h2>
+    </div>
+    <div class="card quiz-card" id="quiz-intro">
+      <p>20 questions on DEMUX theory, truth tables, Boolean expressions, and notification routing. Score 80% or higher to unlock your certificate.</p>
+      <button class="btn btn-primary" id="quiz-start-btn">Start Quiz</button>
+    </div>
+    <div class="card quiz-card hidden" id="quiz-play">
+      <div class="flex-between">
+        <span class="quiz-timer" id="quiz-timer">30s</span>
+        <span class="muted" id="quiz-counter"></span>
+      </div>
+      <div class="quiz-progress"><div class="fill" id="quiz-progress-fill"></div></div>
+      <h3 id="quiz-question"></h3>
+      <div id="quiz-options"></div>
+      <div class="hidden" id="quiz-explanation"></div>
+    </div>
+    <div class="card quiz-card hidden" id="quiz-result">
+      <h3>Quiz Complete</h3>
+      <p id="quiz-score-line"></p>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="quiz-retry-btn">Try Again</button>
+        <button class="btn btn-primary hidden" id="quiz-cert-btn">Generate Certificate</button>
+      </div>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">Performance Tracking</span>
+      <h2>Your progress</h2>
+    </div>
+    <div id="quiz-stats"></div>
+    <div class="badge-grid" id="badge-grid"></div>
+  </div>
+</section>
+
+<!-- ================= CERTIFICATE ================= -->
+<section id="certificate">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Certificate</span>
+      <h2>Certificate of Achievement</h2>
+      <p>Available once you score 80% or higher on the quiz. Generated entirely in your browser as a downloadable image.</p>
+    </div>
+    <div class="card" style="max-width:480px;">
+      <label>Student Name</label>
+      <input type="text" id="cert-name" placeholder="Your full name">
+      <button class="btn btn-primary" id="gen-cert-btn">Generate Certificate</button>
+    </div>
+    <div id="certificate-canvas-wrap" class="hidden">
+      <canvas id="certificate-canvas"></canvas>
+    </div>
+    <div class="btn-row" style="justify-content:center;">
+      <button class="btn btn-ghost hidden" id="cert-download-btn">Download Certificate</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DOCUMENTATION / ABOUT ================= -->
+<section id="about">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Project Documentation</span>
+      <h2>About this project</h2>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Advantages</h3>
+        <ul style="color:var(--text-dim);padding-left:18px;">
+          <li>Simple, well-defined routing model</li>
+          <li>Efficient, single-destination selection</li>
+          <li>Clear digital-logic representation</li>
+          <li>Easy to test and verify</li>
+          <li>Scalable to more select lines / destinations</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Limitations</h3>
+        <ul style="color:var(--text-dim);padding-left:18px;">
+          <li>Simulation only — no real messages are sent</li>
+          <li>Real systems require backend APIs and services</li>
+          <li>Destination count depends on available select lines</li>
+          <li>Local Storage is not a production database</li>
+        </ul>
+      </div>
+    </div>
+    <div class="grid grid-2 mt">
+      <div class="card">
+        <h3>Real-World Applications</h3>
+        <p>Notification systems, communication systems, data and network routing, control systems, IoT alert systems, emergency warning systems, industrial monitoring, smart-city alerts, and security systems.</p>
+      </div>
+      <div class="card">
+        <h3>Data / AI Extension (Future)</h3>
+        <p>A future AI layer could predict notification priority, detect unusual notification patterns, predict frequently used destinations, and flag abnormal routing attempts. <b>Not implemented in this version</b> — the current site demonstrates the DEMUX digital logic first.</p>
+      </div>
+    </div>
+    <div class="card mt">
+      <h3>Project Details</h3>
+      <div class="grid grid-4">
+        <div><span class="muted">Domain</span><p>Digital Electronics</p></div>
+        <div><span class="muted">Core Concept</span><p>Demultiplexer</p></div>
+        <div><span class="muted">Technology</span><p>HTML · CSS · JavaScript</p></div>
+        <div><span class="muted">Storage</span><p>Browser Local Storage</p></div>
+      </div>
+    </div>
+    <div class="card mt">
+      <h3>Future Enhancements</h3>
+      <p class="muted">Marked as future work — not implemented: real SMS/Email/WhatsApp APIs, cloud notification services, a backend database, authentication, real-time IoT integration, and machine-learning-based priority prediction.</p>
+    </div>
+    <div class="card mt">
+      <h3>References</h3>
+      <p class="muted">General digital-electronics and digital-logic-design textbook concepts: combinational circuits, demultiplexers, truth tables, and Boolean algebra, as commonly taught in introductory digital systems courses.</p>
+    </div>
+
+    <div class="section-head mt" style="margin-top:52px;">
+      <span class="eyebrow">FAQ</span>
+      <h2>Frequently asked questions</h2>
+    </div>
+    <div>
+      <div class="faq-item"><div class="faq-q">What is a DEMUX? <span>+</span></div><div class="faq-a">A combinational circuit that routes one input to one of several outputs, chosen by select lines.</div></div>
+      <div class="faq-item"><div class="faq-q">How many outputs does a 1:8 DEMUX have? <span>+</span></div><div class="faq-a">Eight outputs (Y0–Y7), addressed by 3 select lines.</div></div>
+      <div class="faq-item"><div class="faq-q">How are select lines used? <span>+</span></div><div class="faq-a">Their binary combination is decoded into an index; that index's output carries the data input.</div></div>
+      <div class="faq-item"><div class="faq-q">How does notification routing work here? <span>+</span></div><div class="faq-a">The chosen destination is converted into a 3-bit select-line value, which drives a real 1:8 DEMUX computation.</div></div>
+      <div class="faq-item"><div class="faq-q">What happens with an invalid destination? <span>+</span></div><div class="faq-a">It is rejected before reaching the DEMUX and logged as INVALID DESTINATION — nothing is routed.</div></div>
+      <div class="faq-item"><div class="faq-q">Does the website send real SMS or email? <span>+</span></div><div class="faq-a">No. This is entirely a simulation; no real messages are ever sent.</div></div>
+      <div class="faq-item"><div class="faq-q">What is synthetic data? <span>+</span></div><div class="faq-a">Deterministically generated sample notifications used to demonstrate routing at scale without real user data.</div></div>
+      <div class="faq-item"><div class="faq-q">Why are test cases required? <span>+</span></div><div class="faq-a">They verify the DEMUX logic and routing pipeline behave correctly for both normal and edge/fault inputs.</div></div>
+      <div class="faq-item"><div class="faq-q">How does DEMUX relate to digital routing? <span>+</span></div><div class="faq-a">DEMUX is the fundamental digital-logic building block behind one-to-one channel selection, which is exactly what notification routing needs.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONTACT ================= -->
+<section id="contact">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Contact</span>
+      <h2>Feedback</h2>
+    </div>
+    <form class="card" style="max-width:520px;" id="feedback-form">
+      <label>Name</label><input type="text" id="c-name" required>
+      <label>Email</label><input type="email" id="c-email" required>
+      <label>Feedback</label><textarea id="c-feedback" required></textarea>
+      <label>Rating</label>
+      <select id="c-rating"><option>5 - Excellent</option><option>4 - Good</option><option>3 - Average</option><option>2 - Poor</option><option>1 - Very Poor</option></select>
+      <button class="btn btn-primary" type="submit">Submit Feedback</button>
+    </form>
+
+    <div class="card mt" style="max-width:520px;">
+      <h3>Reset Local Data</h3>
+      <p class="muted">Clears delivery logs, test results, quiz history, achievements, and feedback stored in this browser.</p>
+      <button class="btn btn-danger" id="reset-all-btn">Reset All Data</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div>DEMUX Notification Router — Demultiplexer-Based Notification Routing &amp; Digital Logic Simulator</div>
+    <div class="fine">Educational digital-logic simulation. No real notifications are sent. Built with HTML, CSS &amp; JavaScript only.</div>
+  </div>
+</footer>
+
+<script>
+/* ==========================================================================
+   DEMUX Notification Router — script.js
+   All routing decisions in this file are computed from real DEMUX logic
+   (D + select lines). Nothing here is hard-coded to "look" interactive.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------- *
+ * 0. Small utilities
+ * ---------------------------------------------------------------------- */
+const $  = (sel, ctx=document) => ctx.querySelector(sel);
+const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+const pad = (n, w) => String(n).padStart(w, '0');
+const nowStamp = () => {
+  const d = new Date();
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+};
+function toast(msg){
+  let t = $('#toast');
+  if(!t){ t = document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 2600);
+}
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function lsGet(key, fallback){
+  try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e){ return fallback; }
+}
+function lsSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* storage unavailable */ }
+}
+
+/* ---------------------------------------------------------------------- *
+ * 1. CORE DEMUX LOGIC — the single source of truth for all routing
+ * ---------------------------------------------------------------------- */
+
+/**
+ * computeDemux(bits, D, selects)
+ * bits    : number of select lines (1, 2, or 3)
+ * D       : data input, 0 or 1
+ * selects : array of 0/1, MSB first, length === bits
+ * returns : { outputs:[...], activeIndex, binary, exprActive, D }
+ */
+function computeDemux(bits, D, selects){
+  const n = 1 << bits;
+  const outputs = new Array(n).fill(0);
+  let idx = 0;
+  for(let i = 0; i < bits; i++){ idx = (idx << 1) | (selects[i] ? 1 : 0); }
+  if(D){ outputs[idx] = 1; }
+  const binary = selects.map(s => s ? 1 : 0).join('');
+  return { outputs, activeIndex: idx, binary, D: D ? 1 : 0 };
+}
+
+/** Boolean expression text for output Yidx, e.g. "D · S1' · S0" */
+function exprForIndex(bits, idx){
+  const terms = ['D'];
+  if(bits === 1){
+    terms.push(idx === 1 ? 'S' : "S'");
+  } else {
+    for(let i = bits - 1; i >= 0; i--){
+      const bitVal = (idx >> i) & 1;
+      terms.push(bitVal ? ('S'+i) : ('S'+i+"'"));
+    }
+  }
+  return terms.join(' · ');
+}
+
+/* ---------------------------------------------------------------------- *
+ * 2. Destination mapping (1:8 DEMUX drives the Notification Router)
+ * ---------------------------------------------------------------------- */
+const DEST_MAP = ['Email','SMS','Mobile App','WhatsApp','Admin Dashboard','Security Team','Emergency Service','Cloud Notification'];
+const VALID_PRIORITIES = ['Low','Medium','High','Critical'];
+
+function destToSelects(dest){
+  const idx = DEST_MAP.indexOf(dest);
+  if(idx === -1) return null;
+  return { idx, selects: [ (idx>>2)&1, (idx>>1)&1, idx&1 ] };
+}
+
+/**
+ * processNotification(payload) — the single routing pipeline used by the
+ * router UI, the test suite, the synthetic data generator, and START DEMO
+ * alike. payload.D may be explicitly set to 0 to simulate "no signal
+ * present" — every other field is validated exactly the same way.
+ */
+function processNotification(payload){
+  const { id, message, priority, source, destination } = payload;
+  const D = payload.D === 0 ? 0 : 1;
+  const base = { id, message, priority, source, destination, timestamp: payload.timestamp || nowStamp(), D };
+
+  if(!id || !String(id).trim()){
+    return { ...base, status:'FAILED', reason:'Missing notification ID', selects:null, activeIndex:null, output:null };
+  }
+  if(!message || !String(message).trim()){
+    return { ...base, status:'FAILED', reason:'Empty message', selects:null, activeIndex:null, output:null };
+  }
+  if(!VALID_PRIORITIES.includes(priority)){
+    return { ...base, status:'FAILED', reason:'Invalid priority', selects:null, activeIndex:null, output:null };
+  }
+  const map = destToSelects(destination);
+  if(!map){
+    return { ...base, status:'INVALID', reason:'Invalid destination', selects:null, activeIndex:null, output:null };
+  }
+
+  // Real DEMUX computation — D and the select lines derived from the
+  // destination both feed the same computeDemux() used by the simulator.
+  const demux = computeDemux(3, D, map.selects);
+
+  if(D === 0){
+    return {
+      ...base,
+      status: 'NO_OUTPUT',
+      reason: 'No signal present (D = 0) — no output activated',
+      selects: demux.binary,
+      activeIndex: null,
+      output: null,
+    };
+  }
+
+  return {
+    ...base,
+    status: 'DELIVERED',
+    reason: null,
+    selects: demux.binary,
+    activeIndex: demux.activeIndex,
+    output: 'Y' + demux.activeIndex,
+  };
+}
+
+/* ---------------------------------------------------------------------- *
+ * 3. LOADING SCREEN
+ * ---------------------------------------------------------------------- */
+window.addEventListener('load', () => {
+  setTimeout(() => $('#loading-screen')?.classList.add('hidden'), 900);
+});
+
+/* ---------------------------------------------------------------------- *
+ * 4. NAVIGATION
+ * ---------------------------------------------------------------------- */
+function initNav(){
+  const burger = $('#hamburger');
+  const links = $('#nav-links');
+  burger?.addEventListener('click', () => links.classList.toggle('open'));
+  $$('#nav-links a').forEach(a => a.addEventListener('click', () => links.classList.remove('open')));
+
+  const themeBtn = $('#theme-toggle');
+  const saved = lsGet('demux_theme', 'dark');
+  if(saved === 'light') document.documentElement.setAttribute('data-theme','light');
+  updateThemeIcon();
+  themeBtn?.addEventListener('click', () => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if(isLight){ document.documentElement.removeAttribute('data-theme'); lsSet('demux_theme','dark'); }
+    else { document.documentElement.setAttribute('data-theme','light'); lsSet('demux_theme','light'); }
+    updateThemeIcon();
+  });
+}
+function updateThemeIcon(){
+  const btn = $('#theme-toggle');
+  if(!btn) return;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  btn.textContent = isLight ? '☀' : '☾';
+}
+
+/* ---------------------------------------------------------------------- *
+ * 5. LOGIC DIAGRAM (SVG) — shared renderer for 1:2 / 1:4 / 1:8
+ * ---------------------------------------------------------------------- */
+function buildDiagramSVG(bits){
+  const n = 1 << bits;
+  const rowH = 44;
+  const height = Math.max(n * rowH + 70, 220);
+  const boxTop = 40, boxBottom = height - 40;
+  const boxX = 250, boxW = 140;
+  const width = boxX + boxW + 200;
+  const midY = height/2;
+
+  let svg = `<svg class="logic-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+  // D input wire
+  svg += `<line class="wire input" id="wire-d" x1="20" y1="${midY}" x2="${boxX}" y2="${midY}"/>`;
+  svg += `<text x="20" y="${midY-10}">D</text>`;
+  svg += `<circle cx="20" cy="${midY}" r="4" fill="var(--sig-d)"/>`;
+
+  // select lines from top
+  const selGap = boxW / (bits+1);
+  for(let i=0;i<bits;i++){
+    const sx = boxX + selGap*(i+1);
+    const label = bits===1 ? 'S' : ('S'+(bits-1-i));
+    svg += `<line class="wire select" id="sel-line-${i}" x1="${sx}" y1="5" x2="${sx}" y2="${boxTop}"/>`;
+    svg += `<text x="${sx-6}" y="18">${label}</text>`;
+  }
+
+  // demux box
+  svg += `<rect class="demux-box" x="${boxX}" y="${boxTop}" width="${boxW}" height="${boxBottom-boxTop}" rx="10"/>`;
+  svg += `<text x="${boxX+boxW/2-24}" y="${midY+5}" style="fill:var(--sig-s);font-weight:700;">DEMUX</text>`;
+
+  // outputs
+  const outStartY = boxTop + rowH/2;
+  for(let i=0;i<n;i++){
+    const oy = outStartY + i*rowH;
+    const x2 = boxX + boxW + 150;
+    svg += `<line class="wire" id="wire-y${i}" x1="${boxX+boxW}" y1="${oy}" x2="${x2}" y2="${oy}"/>`;
+    svg += `<text class="out-label" id="label-y${i}" x="${x2+8}" y="${oy+4}">Y${i} = 0</text>`;
+  }
+  svg += `</svg>`;
+  return { svg, n };
+}
+
+function updateDiagram(container, bits, D, selects, demuxResult){
+  $$('.wire.input', container).forEach(w => w.classList.toggle('active', !!D));
+  for(let i=0;i<bits;i++){
+    const line = $('#sel-line-'+i, container);
+    if(line) line.classList.toggle('active', !!selects[i]);
+  }
+  const n = 1 << bits;
+  for(let i=0;i<n;i++){
+    const wire = $('#wire-y'+i, container);
+    const label = $('#label-y'+i, container);
+    const active = D && i === demuxResult.activeIndex;
+    if(wire) wire.classList.toggle('active', active);
+    if(label){
+      label.textContent = `Y${i} = ${demuxResult.outputs[i]}`;
+      label.classList.toggle('active', active);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------- *
+ * 6. LIVE DEMUX SIMULATOR
+ * ---------------------------------------------------------------------- */
+const simState = { bits: 2, D: 1, selects: [0,0] };
+
+function renderSimTruthTable(bits, activeIndex){
+  const wrap = $('#sim-truth-wrap');
+  if(!wrap) return;
+  const n = 1<<bits;
+  let rows = '';
+  for(let i=0;i<n;i++){
+    const bin = pad(i.toString(2), bits);
+    let cells = `<td>${bin}</td>`;
+    for(let o=0;o<n;o++) cells += `<td>${o===i? 'D':'0'}</td>`;
+    rows += `<tr class="${i===activeIndex?'active-row':''}"><td>${i}</td>${cells}</tr>`;
+  }
+  let head = `<th>#</th><th>Select</th>`;
+  for(let o=0;o<n;o++) head += `<th>Y${o}</th>`;
+  wrap.innerHTML = `<div class="table-wrap"><table class="truth"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderSimControls(){
+  const bits = simState.bits;
+  const panel = $('#sim-controls');
+  let html = `<div class="ctrl-row"><span class="ctrl-label">Data Input (D)</span><div class="toggle ${simState.D?'on':''}" id="ctrl-d"></div></div>`;
+  for(let i=0;i<bits;i++){
+    const label = bits===1 ? 'S' : ('S'+(bits-1-i));
+    html += `<div class="ctrl-row"><span class="ctrl-label">${label}</span><div class="toggle ${simState.selects[i]?'on':''}" data-sel="${i}"></div></div>`;
+  }
+  panel.innerHTML = html;
+  $('#ctrl-d').addEventListener('click', () => { simState.D = simState.D?0:1; renderSimulator(); });
+  $$('[data-sel]', panel).forEach(el => el.addEventListener('click', () => {
+    const i = +el.dataset.sel; simState.selects[i] = simState.selects[i]?0:1; renderSimulator();
+  }));
+}
+
+let simDiagramBits = null;
+function renderSimulator(){
+  const bits = simState.bits;
+  if(simState.selects.length !== bits) simState.selects = new Array(bits).fill(0);
+
+  const result = computeDemux(bits, simState.D, simState.selects);
+
+  // (Re)build diagram only when the DEMUX size changes
+  const diagWrap = $('#sim-diagram');
+  if(simDiagramBits !== bits){
+    const { svg } = buildDiagramSVG(bits);
+    diagWrap.innerHTML = `<div class="diagram-svg-wrap">${svg}</div>`;
+    simDiagramBits = bits;
+  }
+  updateDiagram(diagWrap, bits, simState.D, simState.selects, result);
+
+  renderSimControls();
+  renderSimTruthTable(bits, result.activeIndex);
+
+  const readout = $('#sim-readout');
+  const activeLabel = simState.D ? ('Y'+result.activeIndex) : 'none (D = 0)';
+  readout.innerHTML = `
+    <div class="r-item">Binary Selection<b>${result.binary}</b></div>
+    <div class="r-item">Active Output<b>${activeLabel}</b></div>
+    <div class="r-item">Boolean Expression<b>${exprForIndex(bits, result.activeIndex)}</b></div>
+    <div class="r-item">Output Vector<b>[${result.outputs.join(', ')}]</b></div>
+  `;
+  const status = $('#sim-status');
+  status.textContent = simState.D
+    ? `Routing status: notification routed to Y${result.activeIndex}.`
+    : `Routing status: no signal present (D = 0) — no output active.`;
+}
+
+function initSimulator(){
+  $$('#sim-type-select button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('#sim-type-select button').forEach(b=>b.classList.remove('btn-primary'));
+      btn.classList.add('btn-primary');
+      simState.bits = +btn.dataset.bits;
+      simState.selects = new Array(simState.bits).fill(0);
+      renderSimulator();
+    });
+  });
+  renderSimulator();
+}
+
+/* ---------------------------------------------------------------------- *
+ * 7. NOTIFICATION ROUTER
+ * ---------------------------------------------------------------------- */
+let routerDiagram = null;
+
+/** Router-specific diagram: identical layout to buildDiagramSVG(3), but
+ *  every output line is labeled with its real destination, not just Yn. */
+function buildRouterDiagramSVG(){
+  const bits = 3, n = 8, rowH = 44;
+  const height = Math.max(n * rowH + 70, 220);
+  const boxTop = 40, boxBottom = height - 40;
+  const boxX = 250, boxW = 140;
+  const width = boxX + boxW + 220;
+  const midY = height/2;
+
+  let svg = `<svg class="logic-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += `<line class="wire input" id="wire-d" x1="20" y1="${midY}" x2="${boxX}" y2="${midY}"/>`;
+  svg += `<text x="20" y="${midY-10}">D</text>`;
+  svg += `<circle cx="20" cy="${midY}" r="4" fill="var(--sig-d)"/>`;
+
+  const selGap = boxW / (bits+1);
+  for(let i=0;i<bits;i++){
+    const sx = boxX + selGap*(i+1);
+    const label = 'S'+(bits-1-i);
+    svg += `<line class="wire select" id="sel-line-${i}" x1="${sx}" y1="5" x2="${sx}" y2="${boxTop}"/>`;
+    svg += `<text x="${sx-6}" y="18">${label}</text>`;
+  }
+
+  svg += `<rect class="demux-box" x="${boxX}" y="${boxTop}" width="${boxW}" height="${boxBottom-boxTop}" rx="10"/>`;
+  svg += `<text x="${boxX+boxW/2-40}" y="${midY+5}" style="fill:var(--sig-s);font-weight:700;">8:1 DEMUX</text>`;
+
+  const outStartY = boxTop + rowH/2;
+  for(let i=0;i<n;i++){
+    const oy = outStartY + i*rowH;
+    const x2 = boxX + boxW + 170;
+    svg += `<line class="wire" id="wire-y${i}" x1="${boxX+boxW}" y1="${oy}" x2="${x2}" y2="${oy}"/>`;
+    svg += `<text class="out-label" id="label-y${i}" x="${x2+8}" y="${oy+4}">Y${i} → ${DEST_MAP[i]}</text>`;
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+/** Updates the router diagram from real D + select-line values. Unlike the
+ *  generic updateDiagram(), labels keep their destination name and only
+ *  toggle color/weight, so "Y5 → Security Team" stays legible at all times. */
+function updateRouterDiagram(D, selects, demuxResult){
+  $$('.wire.input', routerDiagram).forEach(w => w.classList.toggle('active', !!D));
+  for(let i=0;i<3;i++){
+    const line = $('#sel-line-'+i, routerDiagram);
+    if(line) line.classList.toggle('active', !!selects[i]);
+  }
+  for(let i=0;i<8;i++){
+    const wire = $('#wire-y'+i, routerDiagram);
+    const label = $('#label-y'+i, routerDiagram);
+    const active = !!D && demuxResult.activeIndex === i;
+    if(wire) wire.classList.toggle('active', active);
+    if(label) label.classList.toggle('active', active);
+  }
+}
+
+function initRouterDiagram(){
+  const wrap = $('#router-diagram');
+  wrap.innerHTML = `<div class="diagram-svg-wrap">${buildRouterDiagramSVG()}</div>`;
+  routerDiagram = wrap;
+  updateRouterDiagram(0, [0,0,0], computeDemux(3,0,[0,0,0]));
+}
+
+/** Highlights the matching row in the "Destination Mapping" reference
+ *  table so the visible mapping table and the live diagram always agree. */
+function highlightDestRow(activeIndex){
+  for(let i=0;i<8;i++){
+    const row = document.getElementById('destmap-row-'+i);
+    if(row) row.classList.toggle('active-row', activeIndex === i);
+  }
+}
+
+const ROUTE_STEPS = [
+  'Destination selected',
+  'Destination converted to select lines (S2 S1 S0)',
+  'D is set',
+  'DEMUX receives D + select lines',
+  'Correct output Y0–Y7 activates',
+  'Destination highlighted',
+  'Notification Delivered shown',
+  'Routing History updated',
+];
+
+function renderRouteSteps(activeCount){
+  const wrap = $('#route-steps');
+  wrap.innerHTML = ROUTE_STEPS.map((s,i)=>`
+    <div class="route-step ${i<activeCount?'done':''}" id="step-${i}">
+      <div class="step-dot">${i+1}</div>
+      <div class="step-text"><b>${s}</b></div>
+    </div>`).join('');
+}
+
+async function animateSteps(result){
+  renderRouteSteps(0);
+  for(let i=0;i<ROUTE_STEPS.length;i++){
+    await new Promise(r=>setTimeout(r, 180));
+    $('#step-'+i)?.classList.add('done');
+  }
+}
+
+function routeFromForm(){
+  const payload = {
+    id: $('#f-id').value.trim(),
+    message: $('#f-message').value.trim(),
+    priority: $('#f-priority').value,
+    source: $('#f-source').value.trim() || 'Manual Entry',
+    destination: $('#f-destination').value,
+    D: $('#f-force-d0').checked ? 0 : 1,
+  };
+  const result = processNotification(payload);
+  handleRouteResult(result, true);
+  return result;
+}
+
+/** Renders the explicit "D / S2 S1 S0 / Output / Destination / Status"
+ *  readout the demo requires, plus the ✓ Notification Delivered banner. */
+function renderDemuxValuesPanel(result){
+  const panel = $('#demux-values-panel');
+  if(!panel) return;
+  const selDisplay = result.selects ? result.selects.split('').join(' ') : '— — —';
+  const outputDisplay = result.output || 'None';
+
+  let statusLine, statusClass;
+  if(result.status === 'DELIVERED'){
+    statusLine = '✓ Notification Delivered';
+    statusClass = 'delivered';
+  } else if(result.status === 'NO_OUTPUT'){
+    statusLine = 'No Output Activated';
+    statusClass = 'no-output';
+  } else if(result.status === 'INVALID'){
+    statusLine = 'Routing Failed — Invalid Destination';
+    statusClass = 'invalid';
+  } else {
+    statusLine = 'Routing Failed — ' + (result.reason || '');
+    statusClass = 'failed';
+  }
+
+  panel.innerHTML = `
+    <div class="r-item">Notification ID<b>${result.id || '—'}</b></div>
+    <div class="r-item">D<b>${result.D}</b></div>
+    <div class="r-item">S2 S1 S0<b>${selDisplay}</b></div>
+    <div class="r-item">Output<b>${outputDisplay}</b></div>
+    <div class="r-item">Destination<b>${result.destination || '—'}</b></div>
+    <div class="r-item">Status<b class="dv-status ${statusClass}">${statusLine}</b></div>
+  `;
+}
+
+function handleRouteResult(result, animate){
+  const selects = result.selects ? result.selects.split('').map(Number) : [0,0,0];
+  const demuxForDiagram = { activeIndex: result.status === 'DELIVERED' ? result.activeIndex : null };
+  updateRouterDiagram(result.D, selects, demuxForDiagram);
+  highlightDestRow(result.status === 'DELIVERED' ? result.activeIndex : null);
+  renderDemuxValuesPanel(result);
+
+  const statusBox = $('#router-status');
+  statusBox.style.color = '';
+  if(result.status === 'DELIVERED'){
+    statusBox.className = 'status-line';
+    statusBox.textContent = `✓ Notification Delivered — "${result.id}" routed to ${result.destination} (D=1, S2S1S0=${result.selects} → ${result.output}).`;
+  } else if(result.status === 'NO_OUTPUT'){
+    statusBox.className = 'status-line';
+    statusBox.style.color = 'var(--warn)';
+    statusBox.textContent = `No Output Activated — D = 0, select lines ${result.selects} held for ${result.destination}, but no signal is present.`;
+  } else if(result.status === 'INVALID'){
+    statusBox.className = 'status-line';
+    statusBox.style.color = 'var(--warn)';
+    statusBox.textContent = `Routing failed — invalid destination "${result.destination || '(none)'}".`;
+  } else {
+    statusBox.className = 'status-line';
+    statusBox.style.color = 'var(--danger)';
+    statusBox.textContent = `Routing failed — ${result.reason}.`;
+  }
+
+  if(animate) animateSteps(result);
+  addLogEntry(result);
+  renderDashboard();
+}
+
+/* ---------------------------------------------------------------------- *
+ * 7b. START DEMO — automatic multi-notification walkthrough using the
+ *     exact same processNotification()/handleRouteResult() pipeline as
+ *     manual routing. No separate/fake animation logic.
+ * ---------------------------------------------------------------------- */
+const DEMO_SEQUENCE = [
+  {destination:'Email', message:'Order confirmation email'},
+  {destination:'SMS', message:'One-time password: 5521'},
+  {destination:'Security Team', message:'Unusual login attempt detected'},
+  {destination:'Emergency Service', message:'Fire alarm triggered in Building A'},
+  {destination:'Cloud Notification', message:'Nightly backup completed'},
+];
+let demoRunning = false;
+
+async function runStartDemo(){
+  if(demoRunning) return;
+  demoRunning = true;
+  const btn = $('#start-demo-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running demo…';
+
+  for(let i=0;i<DEMO_SEQUENCE.length;i++){
+    const step = DEMO_SEQUENCE[i];
+    const payload = {
+      id: 'DEMO-' + (i+1),
+      message: step.message,
+      priority: 'High',
+      source: 'Start Demo',
+      destination: step.destination,
+      D: 1,
+    };
+    const result = processNotification(payload);
+    handleRouteResult(result, true);
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Start Demo';
+  demoRunning = false;
+  toast('Demo complete — 5 notifications routed to 5 different destinations.');
+}
+
+/* ---------------------------------------------------------------------- *
+ * 8. DELIVERY LOG
+ * ---------------------------------------------------------------------- */
+let deliveryLogs = lsGet('demux_logs', []);
+let logFilter = 'all';
+
+function addLogEntry(result){
+  deliveryLogs.unshift(result);
+  if(deliveryLogs.length > 500) deliveryLogs.length = 500;
+  lsSet('demux_logs', deliveryLogs);
+  renderLogTable();
+}
+
+function statusBadge(status){
+  const map = {
+    DELIVERED: ['delivered','DELIVERED'],
+    INVALID: ['invalid','INVALID DESTINATION'],
+    NO_OUTPUT: ['no-output','NO OUTPUT ACTIVATED'],
+    FAILED: ['failed','FAILED'],
+  };
+  const [cls,text] = map[status] || ['failed', status];
+  return `<span class="badge ${cls}">${text}</span>`;
+}
+
+function renderLogTable(){
+  const body = $('#log-table-body');
+  if(!body) return;
+  let rows = deliveryLogs.filter(l => {
+    if(logFilter==='all') return true;
+    if(logFilter==='delivered') return l.status==='DELIVERED';
+    if(logFilter==='failed') return l.status==='FAILED';
+    if(logFilter==='invalid') return l.status==='INVALID';
+    if(logFilter==='nooutput') return l.status==='NO_OUTPUT';
+    if(logFilter==='high') return l.priority==='High';
+    if(logFilter==='critical') return l.priority==='Critical';
+    return true;
+  });
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="10" class="muted" style="padding:20px;text-align:center;">No routing history yet — route a notification above, or click "Start Demo".</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.slice(0,300).map(l => `
+    <tr>
+      <td>${l.id||'—'}</td>
+      <td>${l.timestamp||'—'}</td>
+      <td>${l.source||'—'}</td>
+      <td>${l.destination||'—'}</td>
+      <td>${l.D!=null?l.D:'—'}</td>
+      <td>${l.selects||'—'}</td>
+      <td>${l.output||'—'}</td>
+      <td>${l.priority||'—'}</td>
+      <td>${statusBadge(l.status)}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.message||l.reason||''}</td>
+    </tr>`).join('');
+}
+
+function initLogFilters(){
+  $$('#log-filters .chip-filter').forEach(chip => {
+    chip.addEventListener('click', () => {
+      $$('#log-filters .chip-filter').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      logFilter = chip.dataset.filter;
+      renderLogTable();
+    });
+  });
+}
+
+function exportLogsCSV(){
+  if(!deliveryLogs.length){ toast('No logs to export yet.'); return; }
+  const header = ['Notification ID','Timestamp','Source','Destination','D','Select Lines','Output','Priority','Status','Message'];
+  const rows = deliveryLogs.map(l => [l.id,l.timestamp,l.source,l.destination,l.D,l.selects,l.output,l.priority,l.status,(l.message||l.reason||'').replace(/,/g,';')]);
+  downloadCSV([header, ...rows], 'demux-routing-history.csv');
+}
+function downloadCSV(rows, filename){
+  const csv = rows.map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------------------------------------------------------------------- *
+ * 9. TEST CASES
+ * ---------------------------------------------------------------------- */
+const TEST_CASES = [
+  {id:'TC01', desc:'Email routing', payload:{id:'N101',message:'Order confirmed',priority:'Low',source:'Order System',destination:'Email'}, expect:{status:'DELIVERED', selects:'000'}},
+  {id:'TC02', desc:'SMS routing', payload:{id:'N102',message:'OTP: 4821',priority:'Medium',source:'Auth Service',destination:'SMS'}, expect:{status:'DELIVERED', selects:'001'}},
+  {id:'TC03', desc:'Mobile App routing', payload:{id:'N103',message:'New message received',priority:'Low',source:'Chat App',destination:'Mobile App'}, expect:{status:'DELIVERED', selects:'010'}},
+  {id:'TC04', desc:'WhatsApp routing', payload:{id:'N104',message:'Delivery update',priority:'Medium',source:'Logistics',destination:'WhatsApp'}, expect:{status:'DELIVERED', selects:'011'}},
+  {id:'TC05', desc:'Admin Dashboard routing', payload:{id:'N105',message:'New user signup',priority:'Low',source:'CRM',destination:'Admin Dashboard'}, expect:{status:'DELIVERED', selects:'100'}},
+  {id:'TC06', desc:'Security Team routing', payload:{id:'N106',message:'Unusual login detected',priority:'High',source:'Auth Service',destination:'Security Team'}, expect:{status:'DELIVERED', selects:'101'}},
+  {id:'TC07', desc:'Emergency Service routing', payload:{id:'N107',message:'Fire detected in Building A',priority:'Critical',source:'Sensor Grid',destination:'Emergency Service'}, expect:{status:'DELIVERED', selects:'110'}},
+  {id:'TC08', desc:'Cloud Notification routing', payload:{id:'N108',message:'Backup completed',priority:'Low',source:'Backup Service',destination:'Cloud Notification'}, expect:{status:'DELIVERED', selects:'111'}},
+  {id:'TC09', desc:'High-priority notification', payload:{id:'N109',message:'CPU usage above threshold',priority:'High',source:'Monitoring',destination:'Admin Dashboard'}, expect:{status:'DELIVERED', selects:'100'}},
+  {id:'TC10', desc:'Critical notification', payload:{id:'N110',message:'Server temperature critical',priority:'Critical',source:'Temperature Sensor',destination:'SMS'}, expect:{status:'DELIVERED', selects:'001'}},
+  {id:'TC11', desc:'Invalid destination', payload:{id:'N111',message:'Test alert',priority:'Medium',source:'Test Harness',destination:'Unknown Channel'}, expect:{status:'INVALID'}},
+  {id:'TC12', desc:'Empty message', payload:{id:'N112',message:'',priority:'Medium',source:'Test Harness',destination:'Email'}, expect:{status:'FAILED'}},
+  {id:'TC13', desc:'Missing notification ID', payload:{id:'',message:'Ping',priority:'Low',source:'Test Harness',destination:'SMS'}, expect:{status:'FAILED'}},
+  {id:'TC14', desc:'Invalid priority', payload:{id:'N114',message:'Ping',priority:'Urgent',source:'Test Harness',destination:'Email'}, expect:{status:'FAILED'}},
+  {id:'TC15', desc:'Direct select-line combination 111', payload:null, raw:{bits:3, D:1, selects:[1,1,1]}, expect:{status:'DELIVERED', selects:'111'}},
+  {id:'TC16', desc:'D = 0 (no signal present)', payload:{id:'N116',message:'Ping',priority:'Low',source:'Test Harness',destination:'Security Team',D:0}, expect:{status:'NO_OUTPUT', selects:'101'}},
+  {id:'TC17', desc:'Duplicate notification ID', payload:{id:'N101',message:'Repeated ID test',priority:'Low',source:'Test Harness',destination:'SMS'}, expect:{status:'DELIVERED', selects:'001'}},
+];
+
+function runTestCase(tc){
+  if(tc.raw){
+    const r = computeDemux(tc.raw.bits, tc.raw.D, tc.raw.selects);
+    const actualStatus = tc.raw.D ? 'DELIVERED' : 'FAILED';
+    const pass = actualStatus===tc.expect.status && r.binary===tc.expect.selects;
+    return { ...tc, actual:{status:actualStatus, selects:r.binary, output:'Y'+r.activeIndex}, pass };
+  }
+  const result = processNotification(tc.payload);
+  const pass = result.status === tc.expect.status &&
+    (tc.expect.selects === undefined || result.selects === tc.expect.selects);
+  return { ...tc, actual:{status:result.status, selects:result.selects||'—', output: result.output||'—'}, pass };
+}
+
+function runAllTests(){
+  const results = TEST_CASES.map(runTestCase);
+  const passed = results.filter(r=>r.pass).length;
+  const body = $('#tc-table-body');
+  body.innerHTML = results.map(r => `
+    <tr>
+      <td>${r.id}</td>
+      <td>${r.desc}</td>
+      <td>${r.expect.status}${r.expect.selects?(' / '+r.expect.selects):''}</td>
+      <td>${r.actual.status}${r.actual.selects&&r.actual.selects!=='—'?(' / '+r.actual.selects):''}${r.actual.output&&r.actual.output!=='—'?(' / '+r.actual.output):''}</td>
+      <td class="${r.pass?'pass':'fail'}">${r.pass?'PASS':'FAIL'}</td>
+    </tr>`).join('');
+  $('#tc-summary').innerHTML = `
+    <div class="card"><div class="num">${results.length}</div><div class="muted">Total Tests</div></div>
+    <div class="card"><div class="num" style="color:var(--sig-y);">${passed}</div><div class="muted">Passed</div></div>
+    <div class="card"><div class="num" style="color:var(--danger);">${results.length-passed}</div><div class="muted">Failed</div></div>
+    <div class="card"><div class="num" style="color:var(--sig-d);">${Math.round(passed/results.length*100)}%</div><div class="muted">Success Rate</div></div>
+  `;
+  lsSet('demux_last_test_run', {results: results.map(r=>({id:r.id,desc:r.desc,pass:r.pass})), passed, total:results.length, date:nowStamp()});
+  toast(`Tests complete: ${passed}/${results.length} passed.`);
+}
+
+/* ---------------------------------------------------------------------- *
+ * 10. SYNTHETIC DATA GENERATOR
+ * ---------------------------------------------------------------------- */
+const SAMPLE_MESSAGES = [
+  'Server temperature is high','New login detected','Backup completed successfully','Payment received',
+  'Disk usage above 90%','Order shipped','New comment on your post','Password changed',
+  'Scheduled maintenance tonight','Unusual traffic spike detected','Battery low on sensor 7',
+  'New version deployed','Weekly report ready','Certificate expiring soon','Subscription renewed'
+];
+const SAMPLE_SOURCES = ['Temperature Sensor','Auth Service','Backup Service','Payment Gateway','Monitoring','Order System','Social Module','IoT Gateway','Deployment Pipeline','Billing System'];
+
+function generateSyntheticData(count){
+  const rand = mulberry32(count * 7919 + 42);
+  const records = [];
+  for(let i=0;i<count;i++){
+    const destIdx = Math.floor(rand()*8);
+    const priIdx = Math.floor(rand()*4);
+    const msgIdx = Math.floor(rand()*SAMPLE_MESSAGES.length);
+    const srcIdx = Math.floor(rand()*SAMPLE_SOURCES.length);
+    const payload = {
+      id: 'SYN'+pad(i+1,4),
+      message: SAMPLE_MESSAGES[msgIdx],
+      priority: VALID_PRIORITIES[priIdx],
+      source: SAMPLE_SOURCES[srcIdx],
+      destination: DEST_MAP[destIdx],
+    };
+    records.push(processNotification(payload));
+  }
+  return records;
+}
+
+function initSyntheticGenerator(){
+  $('#syn-generate').addEventListener('click', () => {
+    const count = +$('#syn-count').value;
+    const records = generateSyntheticData(count);
+    deliveryLogs = [...records, ...deliveryLogs];
+    lsSet('demux_logs', deliveryLogs);
+    renderLogTable();
+    renderDashboard();
+    toast(`Generated ${count} synthetic notifications.`);
+  });
+  $('#syn-clear').addEventListener('click', () => {
+    deliveryLogs = deliveryLogs.filter(l => !String(l.id).startsWith('SYN'));
+    lsSet('demux_logs', deliveryLogs);
+    renderLogTable(); renderDashboard();
+    toast('Synthetic records cleared.');
+  });
+  $('#syn-export').addEventListener('click', exportLogsCSV);
+}
+
+/* ---------------------------------------------------------------------- *
+ * 11. DASHBOARD
+ * ---------------------------------------------------------------------- */
+function renderDashboard(){
+  const stats = $('#dash-stats');
+  if(!stats) return;
+  const total = deliveryLogs.length;
+  const delivered = deliveryLogs.filter(l=>l.status==='DELIVERED').length;
+  const failed = deliveryLogs.filter(l=>l.status==='FAILED').length;
+  const invalid = deliveryLogs.filter(l=>l.status==='INVALID').length;
+  const noOutput = deliveryLogs.filter(l=>l.status==='NO_OUTPUT').length;
+  const rate = total ? Math.round(delivered/total*100) : 0;
+
+  const destCounts = {};
+  deliveryLogs.forEach(l => { if(l.destination) destCounts[l.destination] = (destCounts[l.destination]||0)+1; });
+  const topDest = Object.entries(destCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  stats.innerHTML = `
+    <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:24px;">${total}</div><div class="muted">Total Notifications</div></div>
+    <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:24px;color:var(--sig-y);">${delivered}</div><div class="muted">Successfully Delivered</div></div>
+    <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:24px;color:var(--danger);">${failed}</div><div class="muted">Failed Notifications</div></div>
+    <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:24px;color:var(--warn);">${invalid}</div><div class="muted">Invalid Destinations</div></div>
+    <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:24px;color:var(--text-faint);">${noOutput}</div><div class="muted">No-Signal (D=0) Attempts</div></div>
+    <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:24px;color:var(--sig-d);">${rate}%</div><div class="muted">Success Rate</div></div>
+    <div class="card"><div class="num" style="font-size:15px;">${topDest?topDest[0]:'—'}</div><div class="muted">Most Used Destination</div></div>
+  `;
+
+  renderBarChart('#chart-destinations', DEST_MAP.map(d=>({label:d.split(' ')[0], value:destCounts[d]||0})));
+
+  const pri = {};
+  VALID_PRIORITIES.forEach(p=>pri[p]=0);
+  deliveryLogs.forEach(l=>{ if(pri[l.priority]!==undefined) pri[l.priority]++; });
+  renderBarChart('#chart-priority', VALID_PRIORITIES.map(p=>({label:p, value:pri[p]})));
+
+  renderBarChart('#chart-status', [
+    {label:'Delivered', value:delivered},
+    {label:'Failed', value:failed},
+    {label:'Invalid', value:invalid},
+    {label:'No Output', value:noOutput},
+  ]);
+
+  // routing activity by last 8 log entries order (most recent first -> reverse for timeline)
+  const recent = deliveryLogs.slice(0,8).reverse();
+  renderBarChart('#chart-activity', recent.map((l,i)=>({label:'#'+(i+1), value: l.status==='DELIVERED'?1:0})));
+}
+
+function renderBarChart(sel, data){
+  const el = $(sel);
+  if(!el) return;
+  const max = Math.max(1, ...data.map(d=>d.value));
+  el.innerHTML = data.map(d => `
+    <div class="bar" style="height:${Math.max(4,(d.value/max)*100)}%;">
+      <b>${d.value}</b><span>${d.label}</span>
+    </div>`).join('');
+}
+
+/* ---------------------------------------------------------------------- *
+ * 12. QUIZ
+ * ---------------------------------------------------------------------- */
+const QUIZ_BANK = [
+  {q:'What does a Demultiplexer (DEMUX) do?', opts:['Combines many inputs into one output','Routes one input to one of several outputs','Stores binary data','Amplifies a signal'], a:1, exp:'A DEMUX takes a single data input and routes it to one of several outputs, chosen by the select lines.'},
+  {q:'What determines which output is active in a DEMUX?', opts:['The data input value alone','The select line combination','The clock signal','The output wire length'], a:1, exp:'The select lines form a binary combination that chooses exactly one active output.'},
+  {q:'How many select lines does a 1:4 DEMUX need?', opts:['1','2','3','4'], a:1, exp:'2^2 = 4 outputs, so a 1:4 DEMUX needs 2 select lines.'},
+  {q:'How many outputs does a 1:8 DEMUX have?', opts:['4','6','8','16'], a:2, exp:'A 1:8 DEMUX has 3 select lines, giving 2^3 = 8 outputs.'},
+  {q:'For a 1:2 DEMUX with S=1, which output carries the data D?', opts:['Y0','Y1','Both Y0 and Y1','Neither'], a:1, exp:'S=1 selects Y1, so Y1 = D and Y0 = 0.'},
+  {q:'In a 1:4 DEMUX, select lines S1S0 = 10 activate which output?', opts:['Y0','Y1','Y2','Y3'], a:2, exp:'Binary 10 = decimal 2, so Y2 is activated.'},
+  {q:'What is the general formula for number of outputs in a DEMUX?', opts:['2n','n^2','2^n','n/2'], a:2, exp:'With n select lines, a DEMUX has 2^n outputs.'},
+  {q:'What is the Boolean expression for Y2 in a 1:4 DEMUX?', opts:["D · S1' · S0'","D · S1 · S0'","D · S1' · S0","D · S1 · S0"], a:1, exp:'Y2 corresponds to S1=1, S0=0, so Y2 = D · S1 · S0\'.'},
+  {q:'If D = 0 in any DEMUX, what happens to all outputs?', opts:['All outputs become 1','All outputs remain 0','Only the selected output becomes 1','Outputs are undefined'], a:1, exp:'With no data present (D=0), no output can carry a signal — all outputs are 0.'},
+  {q:'In the Notification Router, what does the "select lines" value represent?', opts:['The notification priority','The binary code for the chosen destination','The message length','The delivery timestamp'], a:1, exp:'The destination is mapped to a binary select-line combination that drives the DEMUX.'},
+  {q:'Which destination maps to select lines 001 in this project\'s 1:8 mapping?', opts:['Email','SMS','WhatsApp','Admin Dashboard'], a:1, exp:'000 = Email, 001 = SMS in the destination mapping used here.'},
+  {q:'What happens when an unsupported destination is entered?', opts:['It is routed to Email by default','The notification is marked INVALID DESTINATION and not routed','The system crashes','It is sent to all destinations'], a:1, exp:'Invalid destinations are rejected and logged as INVALID DESTINATION — nothing is routed.'},
+  {q:'Which best describes a MUX compared to a DEMUX?', opts:['MUX: one input, many outputs','MUX: many inputs, one output','MUX and DEMUX are identical','MUX has no select lines'], a:1, exp:'A Multiplexer (MUX) selects one of many inputs to a single output — the reverse of a DEMUX.'},
+  {q:'A 1:8 DEMUX truth table row "101" activates which output?', opts:['Y3','Y5','Y6','Y7'], a:1, exp:'Binary 101 = decimal 5, activating Y5.'},
+  {q:'What is the purpose of the enable/data input D in this project?', opts:['It selects which output is used','It represents whether a notification signal is present','It sets the priority level','It stores the delivery log'], a:1, exp:'D represents the notification signal itself; select lines only matter once D=1.'},
+  {q:'Why is DEMUX-based routing efficient for notifications?', opts:['It sends the message to every destination at once','It routes to exactly one destination instead of broadcasting to all','It removes the need for a destination field','It requires a backend server'], a:1, exp:'DEMUX logic routes to exactly one chosen destination rather than broadcasting everywhere.'},
+  {q:'In this project, what does the Delivery Log record?', opts:['Only successful deliveries','Only failed attempts','All attempts — delivered, failed, and invalid','Nothing; it is generated only in the report'], a:2, exp:'The delivery log records every attempt, including failures and invalid destinations.'},
+  {q:'Which is a real-world application of DEMUX-style routing?', opts:['IoT alert distribution to the right channel','Storing files permanently','Encrypting a message','Compiling source code'], a:0, exp:'Routing alerts/notifications to the correct channel is a classic DEMUX-style application.'},
+  {q:'What does a "select-line combination" of 111 mean for a 1:8 DEMUX?', opts:['All outputs are active','Output Y7 is selected','The DEMUX is disabled','It is always invalid'], a:1, exp:'111 in binary is 7, selecting output Y7.'},
+  {q:'Why does this project use Local Storage instead of a database?', opts:['Local Storage is faster than any database','The project runs entirely in-browser with no backend','Local Storage is required by DEMUX theory','It is the only place quiz scores can be stored'], a:1, exp:'The site is a pure front-end simulation, so Local Storage persists data without a backend.'},
+];
+
+let quizState = null;
+
+function startQuiz(){
+  const rand = mulberry32(Date.now() % 100000);
+  const order = QUIZ_BANK.map((q,i)=>i).sort(()=>rand()-0.5);
+  quizState = { order, current:0, score:0, answers:[], startedAt: Date.now(), timer:null, timeLeft:30 };
+  $('#quiz-intro').classList.add('hidden');
+  $('#quiz-result').classList.add('hidden');
+  $('#quiz-play').classList.remove('hidden');
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion(){
+  clearInterval(quizState.timer);
+  quizState.timeLeft = 30;
+  const qIdx = quizState.order[quizState.current];
+  const q = QUIZ_BANK[qIdx];
+  const rand = mulberry32(qIdx*13+7);
+  const optOrder = q.opts.map((o,i)=>i).sort(()=>rand()-0.5);
+
+  $('#quiz-progress-fill').style.width = `${(quizState.current/quizState.order.length)*100}%`;
+  $('#quiz-counter').textContent = `Question ${quizState.current+1} of ${quizState.order.length}`;
+  $('#quiz-question').textContent = q.q;
+  const optWrap = $('#quiz-options');
+  optWrap.innerHTML = optOrder.map(oi => `<button class="opt-btn" data-oi="${oi}">${q.opts[oi]}</button>`).join('');
+  $('#quiz-explanation').classList.add('hidden');
+
+  $$('.opt-btn', optWrap).forEach(btn => btn.addEventListener('click', () => answerQuiz(+btn.dataset.oi, q)));
+
+  quizState.timer = setInterval(()=>{
+    quizState.timeLeft--;
+    $('#quiz-timer').textContent = quizState.timeLeft + 's';
+    if(quizState.timeLeft<=0){ clearInterval(quizState.timer); answerQuiz(-1, q); }
+  }, 1000);
+  $('#quiz-timer').textContent = quizState.timeLeft + 's';
+}
+
+function answerQuiz(chosenIdx, q){
+  clearInterval(quizState.timer);
+  const correct = chosenIdx === q.a;
+  if(correct) quizState.score++;
+  quizState.answers.push({q:q.q, correct});
+  $$('.opt-btn').forEach(btn => {
+    const oi = +btn.dataset.oi;
+    if(oi===q.a) btn.classList.add('correct');
+    else if(oi===chosenIdx) btn.classList.add('wrong');
+    btn.disabled = true;
+  });
+  const expBox = $('#quiz-explanation');
+  expBox.classList.remove('hidden');
+  expBox.innerHTML = `<strong>${correct?'Correct.':'Not quite.'}</strong> ${q.exp} <div class="mt"><button class="btn btn-primary btn-sm" id="quiz-next-btn">${quizState.current+1<quizState.order.length?'Next Question':'See Results'}</button></div>`;
+  $('#quiz-next-btn').addEventListener('click', () => {
+    quizState.current++;
+    if(quizState.current >= quizState.order.length) finishQuiz();
+    else renderQuizQuestion();
+  });
+}
+
+function finishQuiz(){
+  $('#quiz-play').classList.add('hidden');
+  $('#quiz-result').classList.remove('hidden');
+  const pct = Math.round(quizState.score/quizState.order.length*100);
+  $('#quiz-score-line').textContent = `${quizState.score} / ${quizState.order.length} correct — ${pct}%`;
+
+  const history = lsGet('demux_quiz_history', []);
+  history.unshift({score:quizState.score, total:quizState.order.length, pct, date:nowStamp()});
+  lsSet('demux_quiz_history', history);
+  lsSet('demux_quiz_last_pct', pct);
+
+  renderQuizStats();
+  const certBtn = $('#quiz-cert-btn');
+  if(pct >= 80){ certBtn.classList.remove('hidden'); } else { certBtn.classList.add('hidden'); }
+}
+
+function renderQuizStats(){
+  const history = lsGet('demux_quiz_history', []);
+  const box = $('#quiz-stats');
+  if(!box) return;
+  if(!history.length){ box.innerHTML = `<p class="muted">No quiz attempts yet.</p>`; }
+  else{
+    const best = Math.max(...history.map(h=>h.pct));
+    const avg = Math.round(history.reduce((s,h)=>s+h.pct,0)/history.length);
+    box.innerHTML = `
+      <div class="grid grid-4">
+        <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:22px;">${history.length}</div><div class="muted">Quizzes Attempted</div></div>
+        <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:22px;color:var(--sig-y);">${best}%</div><div class="muted">Highest Score</div></div>
+        <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:22px;color:var(--sig-d);">${avg}%</div><div class="muted">Average Score</div></div>
+        <div class="card"><div class="num" style="font-family:var(--font-mono);font-size:22px;color:var(--sig-s);">${history[0].pct}%</div><div class="muted">Last Attempt</div></div>
+      </div>`;
+  }
+  renderBadges(history);
+}
+
+const BADGES = [
+  {id:'first', emo:'🏆', label:'First Quiz', test:h=>h.length>=1},
+  {id:'learner', emo:'🏆', label:'DEMUX Learner', test:h=>h.length>=3},
+  {id:'master', emo:'🏆', label:'Routing Master', test:()=>lsGet('demux_logs',[]).filter(l=>l.status==='DELIVERED').length>=15},
+  {id:'80', emo:'🏆', label:'80% Achiever', test:h=>h.some(x=>x.pct>=80)},
+  {id:'90', emo:'🏆', label:'90% Expert', test:h=>h.some(x=>x.pct>=90)},
+  {id:'100', emo:'🏆', label:'Perfect Score', test:h=>h.some(x=>x.pct===100)},
+];
+function renderBadges(history){
+  const wrap = $('#badge-grid');
+  if(!wrap) return;
+  wrap.innerHTML = BADGES.map(b => {
+    const unlocked = b.test(history);
+    return `<div class="ach-badge ${unlocked?'unlocked':''}"><span class="emo">${b.emo}</span>${b.label}</div>`;
+  }).join('');
+}
+
+function initQuiz(){
+  $('#quiz-start-btn').addEventListener('click', startQuiz);
+  $('#quiz-retry-btn').addEventListener('click', () => { $('#quiz-result').classList.add('hidden'); $('#quiz-intro').classList.remove('hidden'); });
+  renderQuizStats();
+}
+
+/* ---------------------------------------------------------------------- *
+ * 13. CERTIFICATE
+ * ---------------------------------------------------------------------- */
+function drawCertificate(name, pct){
+  const canvas = $('#certificate-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 1000, H = 700;
+  canvas.width = W; canvas.height = H;
+
+  ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+  const grad = ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'rgba(34,211,238,0.10)'); grad.addColorStop(1,'rgba(167,139,250,0.10)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 3; ctx.strokeRect(28,28,W-56,H-56);
+  ctx.strokeStyle = 'rgba(167,139,250,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(42,42,W-84,H-84);
+
+  // circuit doodle corners
+  ctx.strokeStyle = 'rgba(52,211,153,0.5)'; ctx.lineWidth = 2;
+  [[70,70],[W-70,70],[70,H-70],[W-70,H-70]].forEach(([x,y])=>{
+    ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+ (x<W/2?40:-40), y); ctx.stroke();
+  });
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#93a0bd'; ctx.font = '16px monospace';
+  ctx.fillText('D → DEMUX → SELECT LINES → Y', W/2, 110);
+
+  ctx.fillStyle = '#e7ecf7'; ctx.font = '700 40px sans-serif';
+  ctx.fillText('CERTIFICATE OF ACHIEVEMENT', W/2, 175);
+
+  ctx.fillStyle = '#93a0bd'; ctx.font = '17px sans-serif';
+  ctx.fillText('This certificate is awarded to', W/2, 230);
+
+  ctx.fillStyle = '#22d3ee'; ctx.font = '700 34px sans-serif';
+  ctx.fillText(name || 'Learner', W/2, 285);
+
+  ctx.fillStyle = '#c7cfe3'; ctx.font = '16px sans-serif';
+  wrapText(ctx, 'For successfully completing the DEMUX Notification Router learning and simulation module, demonstrating mastery of demultiplexer-based digital logic and notification routing.', W/2, 330, 680, 24);
+
+  ctx.font = '15px monospace'; ctx.fillStyle = '#93a0bd';
+  const certId = 'DEMUX-' + Date.now().toString(36).toUpperCase();
+  ctx.textAlign = 'left';
+  ctx.fillText('Score: ' + pct + '%', 90, 470);
+  ctx.fillText('Date: ' + new Date().toLocaleDateString(), 90, 495);
+  ctx.fillText('Certificate ID: ' + certId, 90, 520);
+  ctx.fillText('Topic: Demultiplexer-Based Notification Router', 90, 545);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#e7ecf7'; ctx.font = '22px "Brush Script MT", cursive';
+  ctx.fillText('DEMUX Router', W-90, 600);
+  ctx.strokeStyle = '#5c6a8c'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W-260,612); ctx.lineTo(W-90,612); ctx.stroke();
+  ctx.font = '12px sans-serif'; ctx.fillStyle = '#5c6a8c';
+  ctx.fillText('Automated Verification Signature', W-90, 630);
+
+  return certId;
+}
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' ');
+  let line = '', yy = y;
+  ctx.textAlign = 'center';
+  words.forEach(w => {
+    const test = line + w + ' ';
+    if(ctx.measureText(test).width > maxWidth && line){
+      ctx.fillText(line, x, yy); line = w + ' '; yy += lineHeight;
+    } else line = test;
+  });
+  ctx.fillText(line, x, yy);
+}
+
+function initCertificate(){
+  const genBtn = $('#gen-cert-btn');
+  genBtn?.addEventListener('click', () => {
+    const name = $('#cert-name').value.trim();
+    if(!name){ toast('Enter your name to generate the certificate.'); return; }
+    const pct = lsGet('demux_quiz_last_pct', 0);
+    $('#certificate-canvas-wrap').classList.remove('hidden');
+    const certId = drawCertificate(name, pct);
+    $('#cert-download-btn').classList.remove('hidden');
+    $('#cert-download-btn').onclick = () => {
+      const canvas = $('#certificate-canvas');
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'demux-certificate.png';
+      a.click();
+    };
+  });
+  $('#quiz-cert-btn')?.addEventListener('click', () => {
+    document.getElementById('certificate').scrollIntoView({behavior:'smooth'});
+  });
+}
+
+/* ---------------------------------------------------------------------- *
+ * 14. REPORT EXPORT
+ * ---------------------------------------------------------------------- */
+function downloadReport(){
+  const run = lsGet('demux_last_test_run', null);
+  const lines = [];
+  lines.push('DEMUX NOTIFICATION ROUTER — TEST & PROJECT REPORT');
+  lines.push('Generated: ' + nowStamp());
+  lines.push('');
+  lines.push('PROJECT TITLE: Demultiplexer-Based Notification Router');
+  lines.push('PROBLEM STATEMENT: Route a single notification to one of several destinations using DEMUX select-line logic.');
+  lines.push('');
+  lines.push('ASSUMPTIONS:');
+  lines.push('- One notification is generated and routed at a time.');
+  lines.push('- Only one destination is selected at a time.');
+  lines.push('- Synthetic data is used; no real email/SMS/WhatsApp is sent.');
+  lines.push('- Delivery status is logged locally in the browser.');
+  lines.push('');
+  lines.push('TEST RESULTS:');
+  if(run){
+    lines.push(`Run date: ${run.date}`);
+    lines.push(`Total: ${run.total}  Passed: ${run.passed}  Failed: ${run.total-run.passed}`);
+    run.results.forEach(r => lines.push(`  ${r.id} — ${r.desc} — ${r.pass?'PASS':'FAIL'}`));
+  } else {
+    lines.push('  No test run recorded yet. Visit Test Cases and click "Run All Tests".');
+  }
+  lines.push('');
+  lines.push('DELIVERY LOG SUMMARY:');
+  lines.push(`  Total logged notifications: ${deliveryLogs.length}`);
+  lines.push(`  Delivered: ${deliveryLogs.filter(l=>l.status==='DELIVERED').length}`);
+  lines.push(`  Failed: ${deliveryLogs.filter(l=>l.status==='FAILED').length}`);
+  lines.push(`  Invalid destination: ${deliveryLogs.filter(l=>l.status==='INVALID').length}`);
+  lines.push(`  No output activated (D=0): ${deliveryLogs.filter(l=>l.status==='NO_OUTPUT').length}`);
+  lines.push('');
+  lines.push('RESULT SUMMARY: DEMUX routing logic verified against destination mapping and select-line truth tables.');
+
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'demux-test-report.txt'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------------------------------------------------------------------- *
+ * 15. FAQ
+ * ---------------------------------------------------------------------- */
+function initFAQ(){
+  $$('.faq-item').forEach(item => {
+    $('.faq-q', item).addEventListener('click', () => item.classList.toggle('open'));
+  });
+}
+
+/* ---------------------------------------------------------------------- *
+ * 16. CONTACT / FEEDBACK
+ * ---------------------------------------------------------------------- */
+function initContact(){
+  $('#feedback-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const entry = {
+      name: $('#c-name').value.trim(),
+      email: $('#c-email').value.trim(),
+      feedback: $('#c-feedback').value.trim(),
+      rating: $('#c-rating').value,
+      date: nowStamp(),
+    };
+    const all = lsGet('demux_feedback', []);
+    all.unshift(entry);
+    lsSet('demux_feedback', all);
+    e.target.reset();
+    toast('Thanks — your feedback has been saved locally.');
+  });
+}
+
+/* ---------------------------------------------------------------------- *
+ * 17. RESET ALL DATA
+ * ---------------------------------------------------------------------- */
+function initReset(){
+  $('#reset-all-btn')?.addEventListener('click', () => {
+    if(confirm('This will permanently delete all locally stored logs, test results, quiz history, achievements and feedback. Continue?')){
+      ['demux_logs','demux_quiz_history','demux_quiz_last_pct','demux_last_test_run','demux_feedback'].forEach(k=>localStorage.removeItem(k));
+      toast('All local data has been reset.');
+      setTimeout(()=>location.reload(), 700);
+    }
+  });
+}
+
+/* ---------------------------------------------------------------------- *
+ * 18. INIT
+ * ---------------------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  initNav();
+  initSimulator();
+  initRouterDiagram();
+  renderRouteSteps(0);
+  $('#route-btn')?.addEventListener('click', routeFromForm);
+  $('#start-demo-btn')?.addEventListener('click', runStartDemo);
+  initLogFilters();
+  renderLogTable();
+  $('#export-logs-btn')?.addEventListener('click', exportLogsCSV);
+  $('#download-report-btn')?.addEventListener('click', downloadReport);
+  $('#run-tests-btn')?.addEventListener('click', runAllTests);
+  initSyntheticGenerator();
+  renderDashboard();
+  initQuiz();
+  initCertificate();
+  initFAQ();
+  initContact();
+  initReset();
+});
+
+</script>
+</body>
+</html>
